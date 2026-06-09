@@ -823,64 +823,245 @@ function processPdfFile(file) {
     return;
   }
   showProgress();
-  const reader = new FileReader();
-  reader.onload = async (e) => {
-    const dataUrl = e.target.result;
-    const base64 = dataUrl.split(',')[1];
-    const raw = atob(base64);
 
-    // Try to detect geo-referencing from PDF metadata
+  // Read as ArrayBuffer for full binary scanning
+  const abReader = new FileReader();
+  abReader.onload = async (abEvt) => {
+    const arrayBuf = abEvt.target.result;
+    const bytes = new Uint8Array(arrayBuf);
+    // Decode full binary to latin-1 string in chunks (avoids call stack overflow)
+    let raw = '';
+    const CHUNK = 65536;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      raw += String.fromCharCode(...bytes.subarray(i, Math.min(i + CHUNK, bytes.length)));
+    }
+
     const georef = tryExtractGeoref(raw);
-
+    const dataUrl = await blobToDataUrl(file);
     state.pendingPdf = { dataUrl, name: file.name };
 
     if (georef) {
       document.getElementById('geo-info').style.display = 'block';
       document.getElementById('geo-info-text').textContent =
-        `\nBound: ${georef.latMin.toFixed(5)}°, ${georef.lonMin.toFixed(5)}° → ${georef.latMax.toFixed(5)}°, ${georef.lonMax.toFixed(5)}°`;
+        `\nLat: ${georef.latMin.toFixed(5)}° → ${georef.latMax.toFixed(5)}°` +
+        `\nLon: ${georef.lonMin.toFixed(5)}° → ${georef.lonMax.toFixed(5)}°`;
       document.getElementById('manual-georef').style.display = 'none';
       hideProgress();
       await loadPdfToCanvas(dataUrl, file.name, georef);
       closePanel('import-panel');
     } else {
-      // Show manual georef form
+      // Auto-extraction failed — show manual fallback
       document.getElementById('geo-info').style.display = 'none';
       document.getElementById('manual-georef').style.display = 'block';
       hideProgress();
-      showToast('📐 Masukkan bounding box koordinat peta');
+      showToast('📐 GeoPDF tidak terdeteksi — isi koordinat manual');
     }
   };
-  reader.readAsDataURL(file);
+  abReader.readAsArrayBuffer(file);
+}
+
+function blobToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = e => resolve(e.target.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
 }
 
 function tryExtractGeoref(pdfRaw) {
-  // Try to parse LGIDict / GeoPDF bounding boxes from raw PDF bytes
+  /*
+   * Comprehensive GeoPDF bounds extractor.
+   * Scans the FULL binary PDF string (not just first 50 KB) and tries
+   * every known embedding format in priority order:
+   *
+   *  1. GPTS array  – TerraGo / USGS GeoPDF (most common)
+   *  2. LGIDict     – older TerraGo format with /CTM + page-unit corners
+   *  3. Viewport Measure GPTS  – ISO 32000-2 Geospatial (OGC GeoPDF)
+   *  4. EPSG-aware Viewport    – MAPublisher / Avenza export
+   *  5. XMP metadata           – some exporters embed bounds as XMP
+   *  6. Embedded coordinate strings – last-resort regex sweep
+   */
   try {
-    const str = pdfRaw.substring(0, Math.min(pdfRaw.length, 50000));
+    // Work on the full file but convert to a searchable string safely
+    // (binary PDF; use latin-1 interpretation so indexOf works on all bytes)
+    const full = pdfRaw; // already a JS string from atob()
 
-    // Pattern: /LBSX ... /LBSY ... style from some GeoPDFs
-    // Also try NEATLINE / Viewport / GPTS patterns
-    let latMin, latMax, lonMin, lonMax;
+    // ── Helper: extract numbers from a PDF array literal ─────────────
+    function parseNumArray(str) {
+      return str.split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
+    }
 
-    // Look for GPTS array (corner coordinates in GeoPDF)
-    const gptsMatch = str.match(/\/GPTS\s*\[([^\]]+)\]/);
-    if (gptsMatch) {
-      const nums = gptsMatch[1].trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
-      if (nums.length >= 8) {
-        const lats = [nums[0], nums[2], nums[4], nums[6]];
-        const lons = [nums[1], nums[3], nums[5], nums[7]];
-        latMin = Math.min(...lats); latMax = Math.max(...lats);
-        lonMin = Math.min(...lons); lonMax = Math.max(...lons);
-        if (isValidBounds(latMin, latMax, lonMin, lonMax)) return { latMin, latMax, lonMin, lonMax };
+    // ── Helper: validate & normalize a candidate bounding box ────────
+    function tryBounds(lats, lons) {
+      if (!lats.length || !lons.length) return null;
+      const latMin = Math.min(...lats), latMax = Math.max(...lats);
+      const lonMin = Math.min(...lons), lonMax = Math.max(...lons);
+      return isValidBounds(latMin, latMax, lonMin, lonMax)
+        ? { latMin, latMax, lonMin, lonMax } : null;
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // 1. GPTS array  (lat, lon, lat, lon … for each corner)
+    //    Appears inside /Viewport << /Measure << /GPTS [ … ] >> >>
+    //    or directly in /LGIDict. Search entire file.
+    // ══════════════════════════════════════════════════════════════════
+    {
+      // Match ALL occurrences – there may be one per page object
+      const re = /\/GPTS\s*\[([^\]]{10,})\]/g;
+      let m;
+      while ((m = re.exec(full)) !== null) {
+        const nums = parseNumArray(m[1]);
+        if (nums.length >= 8 && nums.length % 2 === 0) {
+          const lats = [], lons = [];
+          for (let i = 0; i < nums.length; i += 2) {
+            lats.push(nums[i]); lons.push(nums[i + 1]);
+          }
+          const b = tryBounds(lats, lons);
+          if (b) return b;
+        }
       }
     }
 
-    // Try viewport measure in some formats
-    const bboxMatch = str.match(/\/BBox\s*\[(-?\d+\.?\d*)\s+(-?\d+\.?\d*)\s+(-?\d+\.?\d*)\s+(-?\d+\.?\d*)\]/);
-    // These are page coords not geo coords - skip raw BBox
+    // ══════════════════════════════════════════════════════════════════
+    // 2. LGIDict / CTM  (older TerraGo)
+    //    /LGIDict << /CTM [ a b c d e f ] /Neatline [ … ] … >>
+    //    CTM maps page units → projected; Neatline gives page corners.
+    //    For WGS84 / geographic projections CTM [1 0 0 1 lonMin latMax]
+    // ══════════════════════════════════════════════════════════════════
+    {
+      const lgiRe = /\/LGIDict\s*<<([\s\S]{20,800}?)>>/g;
+      let m;
+      while ((m = lgiRe.exec(full)) !== null) {
+        const block = m[1];
+
+        // Try GPTS inside LGIDict first (some variants embed it here)
+        const gptsM = block.match(/\/GPTS\s*\[([^\]]+)\]/);
+        if (gptsM) {
+          const nums = parseNumArray(gptsM[1]);
+          if (nums.length >= 8) {
+            const lats = [], lons = [];
+            for (let i = 0; i < nums.length; i += 2) {
+              lats.push(nums[i]); lons.push(nums[i + 1]);
+            }
+            const b = tryBounds(lats, lons);
+            if (b) return b;
+          }
+        }
+
+        // CTM: [ sx 0 0 sy txLon tyLat ] → geographic origin
+        const ctmM = block.match(/\/CTM\s*\[([^\]]+)\]/);
+        const neatM = block.match(/\/Neatline\s*\[([^\]]+)\]/);
+        if (ctmM && neatM) {
+          const ctm  = parseNumArray(ctmM[1]);  // [a b c d e f]
+          const neat = parseNumArray(neatM[1]); // page-unit polygon
+          // ctm[4]=easting origin, ctm[5]=northing origin (or lon/lat for geo proj)
+          if (ctm.length >= 6 && neat.length >= 8) {
+            const lons = [], lats = [];
+            for (let i = 0; i < neat.length - 1; i += 2) {
+              lons.push(ctm[4] + neat[i]     * ctm[0] + neat[i+1] * ctm[2]);
+              lats.push(ctm[5] + neat[i]     * ctm[1] + neat[i+1] * ctm[3]);
+            }
+            const b = tryBounds(lats, lons);
+            if (b) return b;
+          }
+        }
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // 3. ISO 32000-2 Geospatial Viewport  (OGC GeoPDF spec)
+    //    /Viewport << /Measure << /Bounds [ … ] /GPTS [ … ]
+    //    /GCS << /Type /PROJCS … >> >> >>
+    // ══════════════════════════════════════════════════════════════════
+    {
+      // /Bounds is in [0..1] normalised page space, paired with /GPTS
+      // We already caught GPTS above, but try /Bounds + /GPTS pair here
+      const vpRe = /\/Measure\s*<<([\s\S]{10,1200}?)>>/g;
+      let m;
+      while ((m = vpRe.exec(full)) !== null) {
+        const block = m[1];
+        const gptsM = block.match(/\/GPTS\s*\[([^\]]+)\]/);
+        if (!gptsM) continue;
+        const nums = parseNumArray(gptsM[1]);
+        if (nums.length >= 8 && nums.length % 2 === 0) {
+          const lats = [], lons = [];
+          for (let i = 0; i < nums.length; i += 2) {
+            lats.push(nums[i]); lons.push(nums[i + 1]);
+          }
+          const b = tryBounds(lats, lons);
+          if (b) return b;
+        }
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // 4. MAPublisher / Avenza  –  XMP metadata block
+    //    <avenza:Bounds>lonMin,latMin,lonMax,latMax</avenza:Bounds>
+    //    or  <avenza:bbox> lonMin latMin lonMax latMax </avenza:bbox>
+    // ══════════════════════════════════════════════════════════════════
+    {
+      // avenza:Bounds tag
+      const avenzaM = full.match(/<avenza:Bounds[^>]*>([\s\S]*?)<\/avenza:Bounds>/i);
+      if (avenzaM) {
+        const nums = parseNumArray(avenzaM[1].replace(/[,;|]+/g, ' '));
+        if (nums.length === 4) {
+          // order: lonMin latMin lonMax latMax
+          const [lonMin, latMin, lonMax, latMax] = nums;
+          if (isValidBounds(latMin, latMax, lonMin, lonMax))
+            return { latMin, latMax, lonMin, lonMax };
+        }
+      }
+
+      // Generic XMP geographic bbox tags
+      const xmpPatterns = [
+        /Geo(?:graphic)?(?:Bounds|BBox|Extent)[^>]*>\s*([\-\d\s.,]+?)\s*</i,
+        /bbox[^>]*>\s*([\-\d\s.,]+?)\s*</i,
+        /(?:west|xmin)[^>]*>\s*([\-\d.]+)/i,
+      ];
+      let west, east, south, north;
+      const westM  = full.match(/(?:west|xmin|lonmin)[^>]*>\s*([\-\d.]+)/i);
+      const eastM  = full.match(/(?:east|xmax|lonmax)[^>]*>\s*([\-\d.]+)/i);
+      const southM = full.match(/(?:south|ymin|latmin)[^>]*>\s*([\-\d.]+)/i);
+      const northM = full.match(/(?:north|ymax|latmax)[^>]*>\s*([\-\d.]+)/i);
+      if (westM && eastM && southM && northM) {
+        west  = parseFloat(westM[1]);  east  = parseFloat(eastM[1]);
+        south = parseFloat(southM[1]); north = parseFloat(northM[1]);
+        if (isValidBounds(south, north, west, east))
+          return { latMin: south, latMax: north, lonMin: west, lonMax: east };
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // 5. Last resort: EPSG-tagged coordinate pairs embedded in PDF text
+    //    Some exporters write human-readable coord strings in metadata
+    // ══════════════════════════════════════════════════════════════════
+    {
+      // Look for four plausible coordinate numbers near each other
+      // Pattern: something like  -7.1234 110.4567 -7.0987 110.4890
+      const coordRe = /([\-]?\d{1,3}\.\d{4,})\s+([\-]?\d{1,3}\.\d{4,})\s+([\-]?\d{1,3}\.\d{4,})\s+([\-]?\d{1,3}\.\d{4,})/g;
+      let m;
+      while ((m = coordRe.exec(full)) !== null) {
+        const nums = [m[1], m[2], m[3], m[4]].map(Number);
+        // Try as latMin lonMin latMax lonMax
+        const [a, b, c, d] = nums;
+        const candidates = [
+          [a, c, b, d],  // lat lat lon lon
+          [b, d, a, c],  // lon lon lat lat
+          [a, b, c, d],  // latMin lonMin latMax lonMax
+        ];
+        for (const [latMin, latMax, lonMin, lonMax] of candidates) {
+          if (isValidBounds(latMin, latMax, lonMin, lonMax))
+            return { latMin, latMax, lonMin, lonMax };
+        }
+      }
+    }
 
     return null;
-  } catch { return null; }
+  } catch (err) {
+    console.warn('Georef extraction error:', err);
+    return null;
+  }
 }
 
 function isValidBounds(latMin, latMax, lonMin, lonMax) {
