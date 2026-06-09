@@ -636,28 +636,94 @@
     <!-- Manual georef -->
     <div class="info-card" id="manual-georef" style="display:none;">
       <strong>📐 Bounding Box Manual</strong>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
-        <div>
-          <label style="font-size:11px;color:var(--text2)">Lat Min (Selatan)</label>
-          <input type="number" id="lat-min" placeholder="-7.123" step="0.0001"
-            style="width:100%;margin-top:4px;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
-        </div>
-        <div>
-          <label style="font-size:11px;color:var(--text2)">Lat Max (Utara)</label>
-          <input type="number" id="lat-max" placeholder="-7.100" step="0.0001"
-            style="width:100%;margin-top:4px;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
-        </div>
-        <div>
-          <label style="font-size:11px;color:var(--text2)">Lon Min (Barat)</label>
-          <input type="number" id="lon-min" placeholder="110.400" step="0.0001"
-            style="width:100%;margin-top:4px;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
-        </div>
-        <div>
-          <label style="font-size:11px;color:var(--text2)">Lon Max (Timur)</label>
-          <input type="number" id="lon-max" placeholder="110.430" step="0.0001"
-            style="width:100%;margin-top:4px;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+
+      <!-- Tab switcher -->
+      <div style="display:flex;gap:6px;margin:12px 0 14px;">
+        <button id="tab-geo" onclick="switchGeorefTab('geo')"
+          style="flex:1;padding:7px;border-radius:7px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer">
+          🌐 Geographic (DD)
+        </button>
+        <button id="tab-utm" onclick="switchGeorefTab('utm')"
+          style="flex:1;padding:7px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer">
+          📐 UTM
+        </button>
+      </div>
+
+      <!-- Geographic inputs -->
+      <div id="georef-geo">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <label style="font-size:11px;color:var(--text2)">Lat Min (Selatan)</label>
+            <input type="number" id="lat-min" placeholder="-7.1234" step="0.00001"
+              style="width:100%;margin-top:4px;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text2)">Lat Max (Utara)</label>
+            <input type="number" id="lat-max" placeholder="-7.0987" step="0.00001"
+              style="width:100%;margin-top:4px;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text2)">Lon Min (Barat)</label>
+            <input type="number" id="lon-min" placeholder="110.4001" step="0.00001"
+              style="width:100%;margin-top:4px;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text2)">Lon Max (Timur)</label>
+            <input type="number" id="lon-max" placeholder="110.4350" step="0.00001"
+              style="width:100%;margin-top:4px;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+          </div>
         </div>
       </div>
+
+      <!-- UTM inputs -->
+      <div id="georef-utm" style="display:none;">
+        <!-- Zone row -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <label style="font-size:11px;color:var(--text2)">Zone (mis. 49)</label>
+            <input type="number" id="utm-zone" placeholder="49" min="1" max="60"
+              style="width:100%;margin-top:4px;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text2)">Hemisphere</label>
+            <select id="utm-hemi"
+              style="width:100%;margin-top:4px;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+              <option value="S">S — Selatan</option>
+              <option value="N">N — Utara</option>
+            </select>
+          </div>
+        </div>
+        <!-- Corner easting/northing -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <label style="font-size:11px;color:var(--text2)">Easting Min (Barat) m</label>
+            <input type="number" id="utm-emin" placeholder="430000" step="1"
+              style="width:100%;margin-top:4px;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text2)">Easting Max (Timur) m</label>
+            <input type="number" id="utm-emax" placeholder="435000" step="1"
+              style="width:100%;margin-top:4px;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text2)">Northing Min (Selatan) m</label>
+            <input type="number" id="utm-nmin" placeholder="9210000" step="1"
+              style="width:100%;margin-top:4px;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--text2)">Northing Max (Utara) m</label>
+            <input type="number" id="utm-nmax" placeholder="9215000" step="1"
+              style="width:100%;margin-top:4px;padding:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">
+          </div>
+        </div>
+        <!-- Preview converted coords -->
+        <div id="utm-preview" style="margin-top:10px;padding:8px;background:var(--surface2);border-radius:6px;font-size:11px;color:var(--text2);display:none;line-height:1.8;font-family:monospace"></div>
+        <button onclick="previewUTM()"
+          style="margin-top:8px;width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;cursor:pointer">
+          🔄 Preview Konversi ke LatLon
+        </button>
+      </div>
+
       <button onclick="applyManualGeoref()"
         style="margin-top:12px;width:100%;padding:10px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:14px;cursor:pointer;font-weight:600">
         ✅ Terapkan & Buka Peta
@@ -1070,18 +1136,125 @@ function isValidBounds(latMin, latMax, lonMin, lonMax) {
     && (latMax - latMin) < 20 && (lonMax - lonMin) < 20;
 }
 
-async function applyManualGeoref() {
-  const latMin = parseFloat(document.getElementById('lat-min').value);
-  const latMax = parseFloat(document.getElementById('lat-max').value);
-  const lonMin = parseFloat(document.getElementById('lon-min').value);
-  const lonMax = parseFloat(document.getElementById('lon-max').value);
+// ── GEOREF TAB SWITCHER ──────────────────────────────────────────────
+function switchGeorefTab(tab) {
+  const isUTM = tab === 'utm';
+  document.getElementById('georef-geo').style.display = isUTM ? 'none' : 'block';
+  document.getElementById('georef-utm').style.display = isUTM ? 'block' : 'none';
+  document.getElementById('tab-geo').style.cssText +=
+    isUTM ? ';background:var(--surface2);color:var(--text2);border-color:var(--border)'
+           : ';background:var(--accent);color:#fff;border-color:var(--accent)';
+  document.getElementById('tab-utm').style.cssText +=
+    isUTM ? ';background:var(--accent);color:#fff;border-color:var(--accent)'
+           : ';background:var(--surface2);color:var(--text2);border-color:var(--border)';
+  document.getElementById('utm-preview').style.display = 'none';
+}
 
-  if ([latMin, latMax, lonMin, lonMax].some(isNaN)) {
-    showToast('❌ Isi semua kolom koordinat');
+// ── UTM → LatLon  (WGS-84, Karney method approximation) ──────────────
+function utmToLatLon(easting, northing, zone, isNorth) {
+  const a = 6378137.0, f = 1 / 298.257223563;
+  const k0 = 0.9996, e2 = 2 * f - f * f;
+  const ep2 = e2 / (1 - e2);
+  const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+
+  const x = easting - 500000;
+  const y = isNorth ? northing : northing - 10000000;
+
+  const M = y / k0;
+  const mu = M / (a * (1 - e2/4 - 3*e2**2/64 - 5*e2**3/256));
+
+  const phi1 = mu
+    + (3*e1/2 - 27*e1**3/32) * Math.sin(2*mu)
+    + (21*e1**2/16 - 55*e1**4/32) * Math.sin(4*mu)
+    + (151*e1**3/96) * Math.sin(6*mu)
+    + (1097*e1**4/512) * Math.sin(8*mu);
+
+  const N1 = a / Math.sqrt(1 - e2 * Math.sin(phi1)**2);
+  const T1 = Math.tan(phi1)**2;
+  const C1 = ep2 * Math.cos(phi1)**2;
+  const R1 = a * (1 - e2) / Math.pow(1 - e2 * Math.sin(phi1)**2, 1.5);
+  const D  = x / (N1 * k0);
+
+  const lat = phi1 - (N1 * Math.tan(phi1) / R1) * (
+    D**2/2
+    - (5 + 3*T1 + 10*C1 - 4*C1**2 - 9*ep2) * D**4/24
+    + (61 + 90*T1 + 298*C1 + 45*T1**2 - 252*ep2 - 3*C1**2) * D**6/720
+  );
+
+  const lon0 = (zone - 1) * 6 - 180 + 3;
+  const lonRad = (D
+    - (1 + 2*T1 + C1) * D**3/6
+    + (5 - 2*C1 + 28*T1 - 3*C1**2 + 8*ep2 + 24*T1**2) * D**5/120
+  ) / Math.cos(phi1);
+
+  return {
+    lat: lat * 180 / Math.PI,
+    lon: lon0 + lonRad * 180 / Math.PI
+  };
+}
+
+function previewUTM() {
+  const zone  = parseInt(document.getElementById('utm-zone').value);
+  const hemi  = document.getElementById('utm-hemi').value;
+  const eMin  = parseFloat(document.getElementById('utm-emin').value);
+  const eMax  = parseFloat(document.getElementById('utm-emax').value);
+  const nMin  = parseFloat(document.getElementById('utm-nmin').value);
+  const nMax  = parseFloat(document.getElementById('utm-nmax').value);
+
+  if ([zone, eMin, eMax, nMin, nMax].some(isNaN)) {
+    showToast('❌ Isi semua kolom UTM terlebih dahulu');
     return;
   }
+  const isNorth = hemi === 'N';
+  const sw = utmToLatLon(eMin, nMin, zone, isNorth);
+  const ne = utmToLatLon(eMax, nMax, zone, isNorth);
+  const preview = document.getElementById('utm-preview');
+  preview.style.display = 'block';
+  preview.innerHTML =
+    `SW: ${sw.lat.toFixed(6)}°, ${sw.lon.toFixed(6)}°<br>` +
+    `NE: ${ne.lat.toFixed(6)}°, ${ne.lon.toFixed(6)}°`;
+}
+
+// ── APPLY MANUAL GEOREF  (Geographic or UTM) ─────────────────────────
+async function applyManualGeoref() {
+  const utmVisible = document.getElementById('georef-utm').style.display !== 'none';
+  let latMin, latMax, lonMin, lonMax;
+
+  if (utmVisible) {
+    const zone  = parseInt(document.getElementById('utm-zone').value);
+    const hemi  = document.getElementById('utm-hemi').value;
+    const eMin  = parseFloat(document.getElementById('utm-emin').value);
+    const eMax  = parseFloat(document.getElementById('utm-emax').value);
+    const nMin  = parseFloat(document.getElementById('utm-nmin').value);
+    const nMax  = parseFloat(document.getElementById('utm-nmax').value);
+
+    if ([zone, eMin, eMax, nMin, nMax].some(isNaN) || zone < 1 || zone > 60) {
+      showToast('❌ Isi semua kolom UTM dengan benar');
+      return;
+    }
+    if (eMin >= eMax || nMin >= nMax) {
+      showToast('❌ Min harus lebih kecil dari Max');
+      return;
+    }
+    const isNorth = hemi === 'N';
+    const sw = utmToLatLon(eMin, nMin, zone, isNorth);
+    const ne = utmToLatLon(eMax, nMax, zone, isNorth);
+    latMin = sw.lat; lonMin = sw.lon;
+    latMax = ne.lat; lonMax = ne.lon;
+  } else {
+    latMin = parseFloat(document.getElementById('lat-min').value);
+    latMax = parseFloat(document.getElementById('lat-max').value);
+    lonMin = parseFloat(document.getElementById('lon-min').value);
+    lonMax = parseFloat(document.getElementById('lon-max').value);
+
+    if ([latMin, latMax, lonMin, lonMax].some(isNaN)) {
+      showToast('❌ Isi semua kolom koordinat');
+      return;
+    }
+  }
+
   if (!isValidBounds(latMin, latMax, lonMin, lonMax)) {
-    showToast('❌ Koordinat tidak valid');
+    showToast('❌ Batas koordinat tidak valid — periksa kembali nilai yang dimasukkan');
     return;
   }
 
