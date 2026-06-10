@@ -514,6 +514,107 @@
   }
   #crosshair::before { width: 20px; height: 1px; top: 0; left: -10px; }
   #crosshair::after { width: 1px; height: 20px; top: -10px; left: 0; }
+
+  /* ── GCP RECTIFY PANEL ── */
+  #rectify-panel .panel-body { padding: 0; }
+  #gcp-map-area {
+    position: relative;
+    background: #0a0e14;
+    overflow: hidden;
+    cursor: crosshair;
+    flex-shrink: 0;
+  }
+  #gcp-pdf-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    transform-origin: 0 0;
+  }
+  .gcp-pin {
+    position: absolute;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2.5px solid #fff;
+    transform: translate(-50%, -50%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #fff;
+    cursor: pointer;
+    z-index: 80;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  }
+  .gcp-pin.needs-coord { background: var(--danger); animation: gcpPulse 1s infinite; }
+  .gcp-pin.has-coord   { background: var(--accent); }
+  @keyframes gcpPulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(248,81,73,0.5); }
+    50%     { box-shadow: 0 0 0 8px transparent; }
+  }
+  #gcp-list-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+  }
+  .gcp-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .gcp-row.active { border-color: var(--danger); }
+  .gcp-row.done   { border-color: var(--accent); }
+  .gcp-num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--surface2); border: 1.5px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; flex-shrink: 0; margin-top: 2px;
+  }
+  .gcp-num.done { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .gcp-inputs { flex: 1; }
+  .gcp-coord-tabs { display: flex; gap: 4px; margin-bottom: 6px; }
+  .gcp-tab {
+    font-size: 10px; padding: 3px 8px; border-radius: 4px; cursor: pointer; border: none;
+    background: var(--surface2); color: var(--text2);
+  }
+  .gcp-tab.active { background: var(--accent2); color: #fff; }
+  .gcp-fields { display: grid; gap: 5px; }
+  .gcp-field {
+    width: 100%; padding: 5px 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 5px; color: var(--text); font-size: 12px;
+    font-family: monospace;
+  }
+  .gcp-field:focus { outline: none; border-color: var(--accent2); }
+  .gcp-del { color: var(--danger); font-size: 16px; cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
+  .gcp-pixel-info { font-size: 10px; color: var(--text2); margin-top: 4px; font-family: monospace; }
+  #gcp-add-btn {
+    width: 100%; padding: 9px;
+    background: var(--surface2); border: 1px dashed var(--border);
+    border-radius: 8px; color: var(--text2); font-size: 13px; cursor: pointer;
+    margin-bottom: 8px;
+  }
+  #gcp-add-btn:hover { border-color: var(--accent); color: var(--text); }
+  #gcp-apply-btn {
+    width: 100%; padding: 11px;
+    background: var(--accent); border: none;
+    border-radius: 8px; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  #gcp-apply-btn:disabled { background: var(--surface2); color: var(--text2); cursor: not-allowed; }
+  #gcp-residual {
+    font-size: 11px; color: var(--text2); text-align: center;
+    padding: 6px; background: var(--surface); border-radius: 6px; margin-bottom: 8px;
+  }
+  #gcp-zoom-controls {
+    position: absolute; right: 8px; bottom: 8px;
+    display: flex; flex-direction: column; gap: 3px; z-index: 90;
+  }
+  .gcp-zoom-btn {
+    width: 32px; height: 32px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; cursor: pointer; color: var(--text);
+  }
 </style>
 </head>
 <body>
@@ -595,6 +696,9 @@
   </button>
   <button class="tool-btn" onclick="openPanel('wp-panel')">
     <span class="icon">📋</span>Daftar WP
+  </button>
+  <button class="tool-btn" id="rectify-btn" onclick="openRectifyPanel()">
+    <span class="icon">🎯</span>Rectify
   </button>
   <button class="tool-btn" onclick="openPanel('settings-panel')">
     <span class="icon">⚙️</span>Pengaturan
@@ -1784,9 +1888,506 @@ function hideProgress() {
   setTimeout(() => { pb.style.display = 'none'; pb.style.transform = 'scaleX(0)'; }, 300);
 }
 
+
+// ══════════════════════════════════════════════════════════════════════
+// GCP GEORECTIFICATION ENGINE
+// ══════════════════════════════════════════════════════════════════════
+
+const gcpState = {
+  gcps: [],            // [{id, px, py, lat, lon, coordMode}]
+  transform: { x: 0, y: 0, scale: 1 },
+  drag: null,
+  pendingPinId: null,  // id of GCP waiting for a click
+  canvasW: 0,
+  canvasH: 0,
+};
+
+// ── Open / Close ──────────────────────────────────────────────────────
+function openRectifyPanel() {
+  if (!state.pendingPdf && !state.currentMap) {
+    showToast('⚠️ Import PDF dahulu sebelum rektifikasi');
+    return;
+  }
+  document.getElementById('rectify-panel').classList.add('open');
+  initGCPCanvas();
+}
+
+function closeRectifyPanel() {
+  document.getElementById('rectify-panel').classList.remove('open');
+  gcpState.pendingPinId = null;
+}
+
+// ── Render the PDF into the mini GCP canvas ───────────────────────────
+async function initGCPCanvas() {
+  const dataUrl = state.pendingPdf ? state.pendingPdf.dataUrl
+                : (state.currentMap ? state.currentMap.dataUrl : null);
+  if (!dataUrl) { showToast('⚠️ Tidak ada PDF dimuat'); return; }
+
+  const pdfData = atob(dataUrl.split(',')[1]);
+  const uint8 = new Uint8Array(pdfData.length);
+  for (let i = 0; i < pdfData.length; i++) uint8[i] = pdfData.charCodeAt(i);
+
+  const pdf = await pdfjsLib.getDocument({ data: uint8 }).promise;
+  const page = await pdf.getPage(1);
+
+  const area = document.getElementById('gcp-map-area');
+  const aw = area.clientWidth, ah = area.clientHeight;
+  const vp0 = page.getViewport({ scale: 1 });
+  const fitScale = Math.min(aw / vp0.width, ah / vp0.height) * 0.95;
+
+  const vp = page.getViewport({ scale: Math.max(fitScale * 2, 1.5) });
+  const canvas = document.getElementById('gcp-pdf-canvas');
+  canvas.width = vp.width; canvas.height = vp.height;
+  canvas.style.width = vp.width + 'px'; canvas.style.height = vp.height + 'px';
+  gcpState.canvasW = vp.width; gcpState.canvasH = vp.height;
+
+  await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+
+  gcpState.transform.scale = fitScale;
+  gcpState.transform.x = (aw - vp.width * fitScale) / 2;
+  gcpState.transform.y = (ah - vp.height * fitScale) / 2;
+  applyGCPTransform();
+  renderGCPRows();
+  renderGCPPins();
+}
+
+function applyGCPTransform() {
+  const c = document.getElementById('gcp-pdf-canvas');
+  c.style.transform =
+    `translate(${gcpState.transform.x}px,${gcpState.transform.y}px) scale(${gcpState.transform.scale})`;
+  renderGCPPins();
+}
+
+function gcpZoom(f) {
+  const area = document.getElementById('gcp-map-area');
+  const cx = area.clientWidth / 2, cy = area.clientHeight / 2;
+  const ns = Math.max(0.1, Math.min(10, gcpState.transform.scale * f));
+  const sf = ns / gcpState.transform.scale;
+  gcpState.transform.x = cx - sf * (cx - gcpState.transform.x);
+  gcpState.transform.y = cy - sf * (cy - gcpState.transform.y);
+  gcpState.transform.scale = ns;
+  applyGCPTransform();
+}
+
+// ── GCP map pan + click ───────────────────────────────────────────────
+const gcpArea = document.getElementById('gcp-map-area');
+
+gcpArea.addEventListener('mousedown', e => {
+  gcpState.drag = { x: e.clientX, y: e.clientY,
+                    tx: gcpState.transform.x, ty: gcpState.transform.y, moved: false };
+});
+document.addEventListener('mousemove', e => {
+  if (!gcpState.drag) return;
+  const dx = e.clientX - gcpState.drag.x, dy = e.clientY - gcpState.drag.y;
+  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) gcpState.drag.moved = true;
+  gcpState.transform.x = gcpState.drag.tx + dx;
+  gcpState.transform.y = gcpState.drag.ty + dy;
+  applyGCPTransform();
+});
+document.addEventListener('mouseup', e => {
+  if (gcpState.drag && !gcpState.drag.moved) {
+    const rect = gcpArea.getBoundingClientRect();
+    handleGCPClick(e.clientX - rect.left, e.clientY - rect.top);
+  }
+  gcpState.drag = null;
+});
+
+gcpArea.addEventListener('touchstart', e => {
+  if (e.touches.length === 1)
+    gcpState.drag = { x: e.touches[0].clientX, y: e.touches[0].clientY,
+                      tx: gcpState.transform.x, ty: gcpState.transform.y, moved: false };
+}, { passive: true });
+gcpArea.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!gcpState.drag) return;
+  const dx = e.touches[0].clientX - gcpState.drag.x;
+  const dy = e.touches[0].clientY - gcpState.drag.y;
+  if (Math.abs(dx) > 5 || Math.abs(dy) > 5) gcpState.drag.moved = true;
+  gcpState.transform.x = gcpState.drag.tx + dx;
+  gcpState.transform.y = gcpState.drag.ty + dy;
+  applyGCPTransform();
+}, { passive: false });
+gcpArea.addEventListener('touchend', e => {
+  if (gcpState.drag && !gcpState.drag.moved) {
+    const t = e.changedTouches[0];
+    const rect = gcpArea.getBoundingClientRect();
+    handleGCPClick(t.clientX - rect.left, t.clientY - rect.top);
+  }
+  gcpState.drag = null;
+});
+gcpArea.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = gcpArea.getBoundingClientRect();
+  const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+  const f = e.deltaY < 0 ? 1.15 : 0.87;
+  const ns = Math.max(0.1, Math.min(10, gcpState.transform.scale * f));
+  const sf = ns / gcpState.transform.scale;
+  gcpState.transform.x = cx - sf * (cx - gcpState.transform.x);
+  gcpState.transform.y = cy - sf * (cy - gcpState.transform.y);
+  gcpState.transform.scale = ns;
+  applyGCPTransform();
+}, { passive: false });
+
+function screenToCanvas(sx, sy) {
+  return {
+    px: (sx - gcpState.transform.x) / gcpState.transform.scale,
+    py: (sy - gcpState.transform.y) / gcpState.transform.scale,
+  };
+}
+
+function handleGCPClick(sx, sy) {
+  const { px, py } = screenToCanvas(sx, sy);
+  if (px < 0 || py < 0 || px > gcpState.canvasW || py > gcpState.canvasH) return;
+
+  if (gcpState.pendingPinId !== null) {
+    // Move an existing pin that was activated for repositioning
+    const g = gcpState.gcps.find(g => g.id === gcpState.pendingPinId);
+    if (g) { g.px = px; g.py = py; }
+    gcpState.pendingPinId = null;
+    document.getElementById('gcp-instruction').textContent = 'Ketuk peta untuk menempatkan titik kontrol';
+  } else {
+    // Add new GCP at clicked position
+    const id = Date.now();
+    gcpState.gcps.push({ id, px, py, lat: '', lon: '', coordMode: 'latlon' });
+    gcpState.pendingPinId = null;
+  }
+  renderGCPRows();
+  renderGCPPins();
+  updateGCPApplyBtn();
+}
+
+function addGCPFromCenter() {
+  const area = document.getElementById('gcp-map-area');
+  handleGCPClick(area.clientWidth / 2, area.clientHeight / 2);
+}
+
+// ── Pin overlay ───────────────────────────────────────────────────────
+function renderGCPPins() {
+  // Remove old pins
+  document.querySelectorAll('.gcp-pin').forEach(e => e.remove());
+  gcpState.gcps.forEach((g, i) => {
+    const sx = g.px * gcpState.transform.scale + gcpState.transform.x;
+    const sy = g.py * gcpState.transform.scale + gcpState.transform.y;
+    const pin = document.createElement('div');
+    pin.className = 'gcp-pin ' + (g.lat && g.lon ? 'has-coord' : 'needs-coord');
+    pin.style.left = sx + 'px'; pin.style.top = sy + 'px';
+    pin.textContent = i + 1;
+    pin.title = 'Klik untuk pindahkan titik ini';
+    pin.addEventListener('click', ev => {
+      ev.stopPropagation();
+      gcpState.pendingPinId = g.id;
+      document.getElementById('gcp-instruction').textContent =
+        `Klik lokasi baru untuk titik ${i + 1}`;
+    });
+    gcpArea.appendChild(pin);
+  });
+}
+
+// ── GCP Row list ──────────────────────────────────────────────────────
+function renderGCPRows() {
+  const container = document.getElementById('gcp-rows');
+  container.innerHTML = '';
+  gcpState.gcps.forEach((g, i) => {
+    const done = g.lat !== '' && g.lon !== '';
+    const isUTM = g.coordMode === 'utm';
+    const row = document.createElement('div');
+    row.className = 'gcp-row ' + (done ? 'done' : 'active');
+    row.id = `gcp-row-${g.id}`;
+
+    row.innerHTML = `
+      <div class="gcp-num ${done ? 'done' : ''}">${i + 1}</div>
+      <div class="gcp-inputs">
+        <div class="gcp-coord-tabs">
+          <button class="gcp-tab ${!isUTM ? 'active' : ''}"
+            onclick="setGCPMode(${g.id},'latlon')">LatLon (DD)</button>
+          <button class="gcp-tab ${isUTM ? 'active' : ''}"
+            onclick="setGCPMode(${g.id},'utm')">UTM</button>
+        </div>
+        ${isUTM ? `
+        <div class="gcp-fields" style="grid-template-columns:1fr 1fr 1fr;">
+          <input class="gcp-field" type="number" placeholder="Zone (mis.49)"
+            value="${g.utmZone||''}" min="1" max="60"
+            oninput="updateGCP(${g.id},'utmZone',this.value)">
+          <input class="gcp-field" type="number" placeholder="Easting (m)"
+            value="${g.utmE||''}"
+            oninput="updateGCP(${g.id},'utmE',this.value)">
+          <input class="gcp-field" type="number" placeholder="Northing (m)"
+            value="${g.utmN||''}"
+            oninput="updateGCP(${g.id},'utmN',this.value)">
+        </div>
+        <div style="margin-top:4px;">
+          <select class="gcp-field" style="width:auto;padding:4px 8px;font-size:11px"
+            onchange="updateGCP(${g.id},'utmHemi',this.value)">
+            <option value="S" ${(g.utmHemi||'S')==='S'?'selected':''}>S — Selatan</option>
+            <option value="N" ${(g.utmHemi||'S')==='N'?'selected':''}>N — Utara</option>
+          </select>
+        </div>
+        ` : `
+        <div class="gcp-fields" style="grid-template-columns:1fr 1fr;">
+          <input class="gcp-field" type="number" placeholder="Latitude"
+            value="${g.lat||''}" step="0.000001"
+            oninput="updateGCP(${g.id},'lat',this.value)">
+          <input class="gcp-field" type="number" placeholder="Longitude"
+            value="${g.lon||''}" step="0.000001"
+            oninput="updateGCP(${g.id},'lon',this.value)">
+        </div>
+        `}
+        <div class="gcp-pixel-info">Pixel: (${Math.round(g.px)}, ${Math.round(g.py)})</div>
+      </div>
+      <span class="gcp-del" onclick="deleteGCP(${g.id})" title="Hapus titik">🗑</span>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function setGCPMode(id, mode) {
+  const g = gcpState.gcps.find(g => g.id === id);
+  if (g) { g.coordMode = mode; renderGCPRows(); }
+}
+
+function updateGCP(id, field, value) {
+  const g = gcpState.gcps.find(g => g.id === id);
+  if (!g) return;
+  g[field] = value;
+
+  // If UTM mode, auto-convert to lat/lon
+  if (g.coordMode === 'utm') {
+    const zone = parseInt(g.utmZone), E = parseFloat(g.utmE), N = parseFloat(g.utmN);
+    const isNorth = (g.utmHemi || 'S') === 'N';
+    if (!isNaN(zone) && !isNaN(E) && !isNaN(N) && zone >= 1 && zone <= 60) {
+      const ll = utmToLatLon(E, N, zone, isNorth);
+      g.lat = ll.lat; g.lon = ll.lon;
+    } else { g.lat = ''; g.lon = ''; }
+  } else {
+    g.lat = parseFloat(g.lat) || '';
+    g.lon = parseFloat(g.lon) || '';
+  }
+
+  // Update dot colour
+  const row = document.getElementById(`gcp-row-${id}`);
+  if (row) {
+    const done = g.lat !== '' && g.lon !== '';
+    row.className = 'gcp-row ' + (done ? 'done' : 'active');
+  }
+  renderGCPPins();
+  updateGCPApplyBtn();
+}
+
+function deleteGCP(id) {
+  gcpState.gcps = gcpState.gcps.filter(g => g.id !== id);
+  renderGCPRows(); renderGCPPins(); updateGCPApplyBtn();
+}
+
+function updateGCPApplyBtn() {
+  const ready = gcpState.gcps.filter(g => g.lat !== '' && g.lon !== '');
+  const btn = document.getElementById('gcp-apply-btn');
+  btn.disabled = ready.length < 2;
+  btn.textContent = ready.length < 2
+    ? `\u{1F3AF} Butuh minimal 2 titik (${ready.length} siap)`
+    : `\u{1F3AF} Terapkan Rektifikasi (${ready.length} titik)`;
+}
+
+// ── Affine solve: least-squares fit pixel → lat/lon ───────────────────
+// Solves: lon = a*px + b*py + c
+//          lat = d*px + e*py + f
+// using pseudo-inverse for 3+ points, exact solve for 2 points
+function solveAffine(gcps) {
+  const n = gcps.length;
+  if (n < 2) return null;
+
+  if (n === 2) {
+    // Simple linear: scale + translation, no rotation
+    const [p1, p2] = gcps;
+    const dPx = p2.px - p1.px, dPy = p2.py - p1.py;
+    const dLon = p2.lon - p1.lon, dLat = p2.lat - p1.lat;
+    const dist2 = dPx * dPx + dPy * dPy;
+    if (dist2 < 1) return null;
+    // Uniform scale, axis-aligned
+    const sx = dLon / dist2, sy = -dLat / dist2; // sy negated because y-axis flipped
+    // We use a simple: lon = c0 + c1*px, lat = c3 - c4*py (axis-aligned assumption)
+    const scaleX = (p2.lon - p1.lon) / (p2.px - p1.px || 1);
+    const scaleY = (p2.lat - p1.lat) / (p1.py - p2.py || 1); // py increases downward
+    const c = p1.lon - scaleX * p1.px;
+    const f = p1.lat - scaleY * (gcps[0].py - p1.py); // lat at py=0
+    // Recompute properly:
+    const lonAtOrigin = p1.lon - scaleX * p1.px;
+    const latAtOrigin = p1.lat + scaleY * p1.py;
+    return { a: scaleX, b: 0, c: lonAtOrigin, d: 0, e: -scaleY, f: latAtOrigin };
+  }
+
+  // n >= 3: full affine least-squares
+  // Build matrix A (n×3) and vectors bLon, bLat
+  const A = [], bLon = [], bLat = [];
+  for (const g of gcps) {
+    A.push([g.px, g.py, 1]);
+    bLon.push(g.lon);
+    bLat.push(g.lat);
+  }
+  // Normal equations: (A^T A) x = A^T b
+  const At = transpose(A);
+  const AtA = matMul(At, A);
+  const inv = mat3inv(AtA);
+  if (!inv) return null;
+  const AtbLon = matVecMul(At, bLon);
+  const AtbLat = matVecMul(At, bLat);
+  const xLon = matVecMul(inv, AtbLon); // [a, b, c]
+  const xLat = matVecMul(inv, AtbLat); // [d, e, f]
+  return { a: xLon[0], b: xLon[1], c: xLon[2],
+           d: xLat[0], e: xLat[1], f: xLat[2] };
+}
+
+function transpose(M) {
+  return M[0].map((_, c) => M.map(r => r[c]));
+}
+function matMul(A, B) {
+  const rows = A.length, cols = B[0].length, k = B.length;
+  return Array.from({ length: rows }, (_, i) =>
+    Array.from({ length: cols }, (_, j) =>
+      A[i].reduce((s, _, l) => s + A[i][l] * B[l][j], 0)));
+}
+function matVecMul(M, v) {
+  return M.map(row => row.reduce((s, val, i) => s + val * v[i], 0));
+}
+function mat3inv(M) {
+  // 3×3 matrix inverse
+  const [[a,b,c],[d,e,f],[g,h,i]] = M;
+  const det = a*(e*i-f*h) - b*(d*i-f*g) + c*(d*h-e*g);
+  if (Math.abs(det) < 1e-12) return null;
+  const inv = [
+    [(e*i-f*h)/det, (c*h-b*i)/det, (b*f-c*e)/det],
+    [(f*g-d*i)/det, (a*i-c*g)/det, (c*d-a*f)/det],
+    [(d*h-e*g)/det, (b*g-a*h)/det, (a*e-b*d)/det],
+  ];
+  return inv;
+}
+
+// ── Apply rectification ───────────────────────────────────────────────
+async function applyGCPRectify() {
+  const ready = gcpState.gcps.filter(g => g.lat !== '' && g.lon !== '');
+  if (ready.length < 2) { showToast('⚠️ Minimal 2 titik dengan koordinat'); return; }
+
+  const coeff = solveAffine(ready);
+  if (!coeff) { showToast('❌ Tidak dapat menyelesaikan transformasi — periksa titik kontrol'); return; }
+
+  // Compute residuals (RMS error in degrees)
+  let sumSq = 0;
+  for (const g of ready) {
+    const lonPred = coeff.a * g.px + coeff.b * g.py + coeff.c;
+    const latPred = coeff.d * g.px + coeff.e * g.py + coeff.f;
+    sumSq += (lonPred - g.lon) ** 2 + (latPred - g.lat) ** 2;
+  }
+  const rms = Math.sqrt(sumSq / ready.length);
+  const rmsM = rms * 111320;
+  document.getElementById('gcp-residual').style.display = 'block';
+  document.getElementById('gcp-residual').textContent =
+    `RMS residual: ${rmsM.toFixed(1)} m (${rms.toFixed(6)}°)`;
+
+  // Derive bounding box from affine coefficients over canvas corners
+  const W = gcpState.canvasW, H = gcpState.canvasH;
+  const corners = [[0,0],[W,0],[0,H],[W,H]];
+  const lons = corners.map(([px,py]) => coeff.a*px + coeff.b*py + coeff.c);
+  const lats = corners.map(([px,py]) => coeff.d*px + coeff.e*py + coeff.f);
+  const georef = {
+    latMin: Math.min(...lats), latMax: Math.max(...lats),
+    lonMin: Math.min(...lons), lonMax: Math.max(...lons),
+    affine: coeff,   // store for precise pixel mapping
+  };
+
+  if (!isValidBounds(georef.latMin, georef.latMax, georef.lonMin, georef.lonMax)) {
+    showToast('❌ Hasil rektifikasi di luar batas koordinat valid — periksa titik kontrol');
+    return;
+  }
+
+  const dataUrl = state.pendingPdf ? state.pendingPdf.dataUrl : state.currentMap.dataUrl;
+  const name = state.pendingPdf ? state.pendingPdf.name : state.currentMap.name;
+
+  showProgress();
+  await loadPdfToCanvas(dataUrl, name, georef);
+  hideProgress();
+  closeRectifyPanel();
+  showToast(`\u2705 Rektifikasi berhasil — ${ready.length} GCP, RMS ${rmsM.toFixed(1)} m`);
+}
+
+// Also patch geotoPx and pxToGeo to use affine transform when present
+const _origGeotoPx = geotoPx;
+geotoPx = function(lat, lon) {
+  if (!state.currentMap) return null;
+  const { georef, canvasW, canvasH } = state.currentMap;
+  if (georef.affine) {
+    // Invert affine: given lat/lon, find pixel
+    // lon = a*px + b*py + c  →  a*px + b*py = lon - c
+    // lat = d*px + e*py + f  →  d*px + e*py = lat - f
+    const { a, b, c, d, e, f } = georef.affine;
+    const det = a * e - b * d;
+    if (Math.abs(det) < 1e-12) return _origGeotoPx(lat, lon);
+    const dl = lon - c, dl2 = lat - f;
+    const px = (e * dl - b * dl2) / det;
+    const py = (a * dl2 - d * dl) / det;
+    const screenX = px * state.transform.scale + state.transform.x;
+    const screenY = py * state.transform.scale + state.transform.y;
+    return { x: screenX, y: screenY };
+  }
+  return _origGeotoPx(lat, lon);
+};
+
+const _origPxToGeo = pxToGeo;
+pxToGeo = function(screenX, screenY) {
+  if (!state.currentMap) return null;
+  const { georef } = state.currentMap;
+  if (georef.affine) {
+    const { a, b, c, d, e, f } = georef.affine;
+    const px = (screenX - state.transform.x) / state.transform.scale;
+    const py = (screenY - state.transform.y) / state.transform.scale;
+    return { lat: d * px + e * py + f, lon: a * px + b * py + c };
+  }
+  return _origPxToGeo(screenX, screenY);
+};
+
 // ── INIT ──
 // Restore saved maps metadata (no re-render without dataUrl)
 renderMapsList();
 </script>
+
+<!-- Rectify Panel -->
+<div class="panel" id="rectify-panel" style="flex-direction:column;">
+  <div class="panel-header">
+    <h2>🎯 Georektifikasi GCP</h2>
+    <button class="close-btn" onclick="closeRectifyPanel()">✕</button>
+  </div>
+
+  <!-- Mini PDF viewer for clicking GCPs -->
+  <div id="gcp-map-area" style="height:260px;">
+    <canvas id="gcp-pdf-canvas"></canvas>
+    <div id="gcp-zoom-controls">
+      <div class="gcp-zoom-btn" onclick="gcpZoom(1.3)">+</div>
+      <div class="gcp-zoom-btn" onclick="gcpZoom(0.77)">−</div>
+    </div>
+    <div id="gcp-instruction"
+      style="position:absolute;top:8px;left:50%;transform:translateX(-50%);
+             background:rgba(13,17,23,0.85);border:1px solid var(--border);
+             border-radius:16px;padding:5px 14px;font-size:11px;color:var(--text2);
+             white-space:nowrap;pointer-events:none;z-index:90">
+      Ketuk peta untuk menempatkan titik kontrol
+    </div>
+  </div>
+
+  <!-- GCP list -->
+  <div id="gcp-list-area">
+    <div id="gcp-rows"></div>
+    <button id="gcp-add-btn" onclick="addGCPFromCenter()">＋ Tambah titik di tengah layar</button>
+    <div id="gcp-residual" style="display:none"></div>
+    <button id="gcp-apply-btn" onclick="applyGCPRectify()" disabled>
+      🎯 Terapkan Rektifikasi
+    </button>
+    <div class="info-card" style="margin-top:10px;font-size:11px;color:var(--text2);line-height:1.7">
+      <strong style="font-size:12px">💡 Cara Penggunaan</strong>
+      1. Klik/ketuk titik pada peta di atas<br>
+      2. Masukkan koordinat nyata titik tersebut (LatLon atau UTM)<br>
+      3. Minimal <strong>2 titik</strong> untuk transform linier, <strong>3+</strong> untuk afin<br>
+      4. Klik <em>Terapkan Rektifikasi</em>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
