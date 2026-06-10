@@ -23,6 +23,7 @@
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+  #gcp-map-area, #gcp-map-area * { touch-action: none; }
 
   body {
     background: var(--bg);
@@ -1914,6 +1915,8 @@ const gcpState = {
   pendingPinId: null,  // id of GCP waiting for a click
   canvasW: 0,
   canvasH: 0,
+  lastPinchDist: null,
+  lastPinchMid: null,
 };
 
 // ── Open / Close ──────────────────────────────────────────────────────
@@ -1923,6 +1926,7 @@ function openRectifyPanel() {
     return;
   }
   document.getElementById('rectify-panel').classList.add('open');
+  attachGCPEvents();   // safe to call multiple times — guarded by flag
   initGCPCanvas();
 }
 
@@ -1983,64 +1987,122 @@ function gcpZoom(f) {
   applyGCPTransform();
 }
 
-// ── GCP map pan + click ───────────────────────────────────────────────
-const gcpArea = document.getElementById('gcp-map-area');
+// ── GCP map pan + click — wired lazily inside openRectifyPanel ───────
+// (element doesn't exist at script-parse time; listeners attached once)
+let gcpEventsAttached = false;
 
-gcpArea.addEventListener('mousedown', e => {
-  gcpState.drag = { x: e.clientX, y: e.clientY,
-                    tx: gcpState.transform.x, ty: gcpState.transform.y, moved: false };
-});
-document.addEventListener('mousemove', e => {
-  if (!gcpState.drag) return;
-  const dx = e.clientX - gcpState.drag.x, dy = e.clientY - gcpState.drag.y;
-  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) gcpState.drag.moved = true;
-  gcpState.transform.x = gcpState.drag.tx + dx;
-  gcpState.transform.y = gcpState.drag.ty + dy;
-  applyGCPTransform();
-});
-document.addEventListener('mouseup', e => {
-  if (gcpState.drag && !gcpState.drag.moved) {
-    const rect = gcpArea.getBoundingClientRect();
-    handleGCPClick(e.clientX - rect.left, e.clientY - rect.top);
-  }
-  gcpState.drag = null;
-});
+function attachGCPEvents() {
+  if (gcpEventsAttached) return;
+  gcpEventsAttached = true;
 
-gcpArea.addEventListener('touchstart', e => {
-  if (e.touches.length === 1)
-    gcpState.drag = { x: e.touches[0].clientX, y: e.touches[0].clientY,
+  const area = document.getElementById('gcp-map-area');
+
+  // ── Mouse ──────────────────────────────────────────────────────────
+  area.addEventListener('mousedown', e => {
+    e.stopPropagation();
+    gcpState.drag = { x: e.clientX, y: e.clientY,
                       tx: gcpState.transform.x, ty: gcpState.transform.y, moved: false };
-}, { passive: true });
-gcpArea.addEventListener('touchmove', e => {
-  e.preventDefault();
-  if (!gcpState.drag) return;
-  const dx = e.touches[0].clientX - gcpState.drag.x;
-  const dy = e.touches[0].clientY - gcpState.drag.y;
-  if (Math.abs(dx) > 5 || Math.abs(dy) > 5) gcpState.drag.moved = true;
-  gcpState.transform.x = gcpState.drag.tx + dx;
-  gcpState.transform.y = gcpState.drag.ty + dy;
-  applyGCPTransform();
-}, { passive: false });
-gcpArea.addEventListener('touchend', e => {
-  if (gcpState.drag && !gcpState.drag.moved) {
-    const t = e.changedTouches[0];
-    const rect = gcpArea.getBoundingClientRect();
-    handleGCPClick(t.clientX - rect.left, t.clientY - rect.top);
-  }
-  gcpState.drag = null;
-});
-gcpArea.addEventListener('wheel', e => {
-  e.preventDefault();
-  const rect = gcpArea.getBoundingClientRect();
-  const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
-  const f = e.deltaY < 0 ? 1.15 : 0.87;
-  const ns = Math.max(0.1, Math.min(10, gcpState.transform.scale * f));
-  const sf = ns / gcpState.transform.scale;
-  gcpState.transform.x = cx - sf * (cx - gcpState.transform.x);
-  gcpState.transform.y = cy - sf * (cy - gcpState.transform.y);
-  gcpState.transform.scale = ns;
-  applyGCPTransform();
-}, { passive: false });
+  });
+  area.addEventListener('mousemove', e => {
+    if (!gcpState.drag) return;
+    const dx = e.clientX - gcpState.drag.x, dy = e.clientY - gcpState.drag.y;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) gcpState.drag.moved = true;
+    gcpState.transform.x = gcpState.drag.tx + dx;
+    gcpState.transform.y = gcpState.drag.ty + dy;
+    applyGCPTransform();
+  });
+  area.addEventListener('mouseup', e => {
+    if (!gcpState.drag) return;
+    if (!gcpState.drag.moved) {
+      const rect = area.getBoundingClientRect();
+      handleGCPClick(e.clientX - rect.left, e.clientY - rect.top);
+    }
+    gcpState.drag = null;
+  });
+  area.addEventListener('mouseleave', () => { gcpState.drag = null; });
+
+  // ── Touch ──────────────────────────────────────────────────────────
+  area.style.touchAction = 'none'; // allow preventDefault on touch
+  area.addEventListener('touchstart', e => {
+    e.stopPropagation();
+    if (e.touches.length === 1) {
+      gcpState.drag = { x: e.touches[0].clientX, y: e.touches[0].clientY,
+                        tx: gcpState.transform.x, ty: gcpState.transform.y,
+                        moved: false, pinch: false };
+      gcpState.lastPinchDist = null;
+    } else if (e.touches.length === 2) {
+      gcpState.drag = null;
+      gcpState.lastPinchDist = getPinchDist(e.touches);
+      gcpState.lastPinchMid = getPinchMid(e.touches, area);
+    }
+  }, { passive: true });
+
+  area.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 2) {
+      // Pinch zoom
+      const dist = getPinchDist(e.touches);
+      const mid  = getPinchMid(e.touches, area);
+      if (gcpState.lastPinchDist) {
+        const f = dist / gcpState.lastPinchDist;
+        const ns = Math.max(0.2, Math.min(10, gcpState.transform.scale * f));
+        const sf = ns / gcpState.transform.scale;
+        gcpState.transform.x = mid.x - sf * (mid.x - gcpState.transform.x);
+        gcpState.transform.y = mid.y - sf * (mid.y - gcpState.transform.y);
+        gcpState.transform.scale = ns;
+        applyGCPTransform();
+      }
+      gcpState.lastPinchDist = dist;
+      gcpState.drag = null;
+      return;
+    }
+    if (!gcpState.drag) return;
+    const dx = e.touches[0].clientX - gcpState.drag.x;
+    const dy = e.touches[0].clientY - gcpState.drag.y;
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) gcpState.drag.moved = true;
+    gcpState.transform.x = gcpState.drag.tx + dx;
+    gcpState.transform.y = gcpState.drag.ty + dy;
+    applyGCPTransform();
+  }, { passive: false });
+
+  area.addEventListener('touchend', e => {
+    e.stopPropagation();
+    gcpState.lastPinchDist = null;
+    if (gcpState.drag && !gcpState.drag.moved && e.changedTouches.length === 1) {
+      const t = e.changedTouches[0];
+      const rect = area.getBoundingClientRect();
+      handleGCPClick(t.clientX - rect.left, t.clientY - rect.top);
+    }
+    gcpState.drag = null;
+  });
+
+  // ── Wheel zoom ─────────────────────────────────────────────────────
+  area.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = area.getBoundingClientRect();
+    const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+    const f = e.deltaY < 0 ? 1.15 : 0.87;
+    const ns = Math.max(0.2, Math.min(10, gcpState.transform.scale * f));
+    const sf = ns / gcpState.transform.scale;
+    gcpState.transform.x = cx - sf * (cx - gcpState.transform.x);
+    gcpState.transform.y = cy - sf * (cy - gcpState.transform.y);
+    gcpState.transform.scale = ns;
+    applyGCPTransform();
+  }, { passive: false });
+}
+
+function getPinchDist(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+function getPinchMid(touches, area) {
+  const rect = area.getBoundingClientRect();
+  return {
+    x: (touches[0].clientX + touches[1].clientX) / 2 - rect.left,
+    y: (touches[0].clientY + touches[1].clientY) / 2 - rect.top,
+  };
+}
 
 function screenToCanvas(sx, sy) {
   return {
