@@ -209,7 +209,7 @@
   #zoom-controls {
     position: absolute;
     right: 14px;
-    bottom: 110px;
+    bottom: 140px;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -234,7 +234,7 @@
   /* Center-on-GPS button */
   #center-btn {
     position: absolute;
-    right: 14px; bottom: 60px;
+    right: 14px; bottom: 90px;
     width: 40px; height: 40px;
     background: var(--accent2);
     border: none;
@@ -288,26 +288,37 @@
   #toolbar {
     background: var(--surface);
     border-top: 1px solid var(--border);
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: auto auto;
     z-index: 100;
     flex-shrink: 0;
   }
   .tool-btn {
-    flex: 1;
-    padding: 10px 4px 8px;
+    padding: 8px 4px 6px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
     font-size: 10px;
     color: var(--text2);
     cursor: pointer;
     border: none;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
     background: transparent;
     transition: color 0.15s, background 0.15s;
+    white-space: nowrap;
   }
-  .tool-btn .icon { font-size: 20px; }
+  .tool-btn:nth-child(3n) { border-right: none; }
+  .tool-btn:nth-child(4),
+  .tool-btn:nth-child(5),
+  .tool-btn:nth-child(6) { border-bottom: none; }
+  .tool-btn .icon { font-size: 18px; }
   .tool-btn:active, .tool-btn.active { color: var(--accent); background: rgba(46,160,67,0.08); }
+  /* Rectify button highlighted so it stands out */
+  #rectify-btn { color: var(--gps-dot); }
+  #rectify-btn:active { color: var(--accent); }
 
   /* ── PANELS ── */
   .panel {
@@ -683,22 +694,24 @@
   </div>
 </div>
 
-<!-- Bottom toolbar -->
+<!-- Bottom toolbar — 2×3 grid -->
 <div id="toolbar">
+  <!-- Row 1 -->
   <button class="tool-btn" onclick="openPanel('import-panel')">
     <span class="icon">📂</span>Import PDF
   </button>
   <button class="tool-btn" onclick="openPanel('maps-panel')">
     <span class="icon">🗂️</span>Peta Saya
   </button>
+  <button class="tool-btn" id="rectify-btn" onclick="openRectifyPanel()">
+    <span class="icon">🎯</span>Rektifikasi
+  </button>
+  <!-- Row 2 -->
   <button class="tool-btn" id="wp-mode-btn" onclick="toggleWaypointMode()">
     <span class="icon">📌</span>Waypoint
   </button>
   <button class="tool-btn" onclick="openPanel('wp-panel')">
     <span class="icon">📋</span>Daftar WP
-  </button>
-  <button class="tool-btn" id="rectify-btn" onclick="openRectifyPanel()">
-    <span class="icon">🎯</span>Rectify
   </button>
   <button class="tool-btn" onclick="openPanel('settings-panel')">
     <span class="icon">⚙️</span>Pengaturan
@@ -720,7 +733,7 @@
          ondrop="handleDrop(event)">
       <div class="dz-icon">📄</div>
       <h3>Pilih atau Seret PDF</h3>
-      <p>Mendukung GeoPDF (USGS, Avenza, MAPublisher) dan PDF biasa dengan koordinat manual</p>
+      <p>GeoPDF langsung dimuat. PDF biasa → panel Rektifikasi otomatis terbuka</p>
     </div>
     <input type="file" id="file-input" accept=".pdf,application/pdf" onchange="handleFileSelect(event)">
 
@@ -728,7 +741,7 @@
       <strong>💡 Format PDF yang Didukung</strong>
       • GeoPDF (USGS Topo, MAPublisher, TerraGo)<br>
       • Avenza PDF Maps<br>
-      • PDF biasa → atur bounding box manual<br>
+      • PDF biasa → panel Rektifikasi otomatis terbuka<br>
       • Resolusi optimal: 150–300 DPI
     </div>
 
@@ -1020,11 +1033,12 @@ function processPdfFile(file) {
       await loadPdfToCanvas(dataUrl, file.name, georef);
       closePanel('import-panel');
     } else {
-      // Auto-extraction failed — show manual fallback
-      document.getElementById('geo-info').style.display = 'none';
-      document.getElementById('manual-georef').style.display = 'block';
+      // Auto-extraction failed — go straight to Rectify panel
       hideProgress();
-      showToast('📐 GeoPDF tidak terdeteksi — isi koordinat manual');
+      closePanel('import-panel');
+      showToast('🎯 Tidak ada georef — silakan rektifikasi manual');
+      // Small delay so toast is readable before panel opens
+      setTimeout(() => openRectifyPanel(), 400);
     }
   };
   abReader.readAsArrayBuffer(file);
