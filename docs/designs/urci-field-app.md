@@ -590,3 +590,290 @@ issues verified: 6 of 6
 
 Verification is deterministic: a fix counts when its `applied_text` is in the current design and absent from the round-3 snapshot. It confirms applied edits, never a review verdict; no reviewer was launched past the cap.
 <!-- gstack:office-hours:concerns:end -->
+
+## CEO Review Amendments (approved 2026-11-01, /plan-ceo-review, HOLD SCOPE)
+These amendments are approved and **supersede** any earlier text in this doc that conflicts with them.
+
+- **SYNC-1 (D15, replaces the D4 deferral):**
+  - **Conflicts:** a conflict is closed with a one-tap "Pakai versi saya / Pakai versi masuk" (keep mine / take incoming), after a short list of the fields that differ. Resolution writes history = union of both histories plus a new local stamp.
+  - **Rounds:** `roundId` is deterministic, `<sectionKey>-<yyyy-MM>`. Phones agree on rounds automatically, so there's no merge step. The 14-day / 30-day auto-round rules and the "Gabungkan putaran" suggestion are removed. `rounds/<roundId>.json` still holds the label and closedAt under the sync rules. A survey crossing a month boundary lands in two rounds (accepted tradeoff).
+- **ERR-1 (D5): crash-safe saves on SAF.** SAF has no atomic replace (outside-voice correction), so the safe-replace protocol is:
+  1. write `inspection.json.new`;
+  2. rename the current file to `inspection.json.old`;
+  3. rename `.new` to `inspection.json`;
+  4. delete `.old`.
+
+  On startup, any folder holding `.new` or `.old` is recovered: if `.json` is valid, delete leftovers; else promote `.new` (if valid), else `.old`.
+  - Before every photo, export and import, free space is checked against the expected size × 1.5. If it's short, an ID/EN message says how much space is needed, and nothing partial is written.
+  - Photo writes check that the name exists first, since SAF auto-renames on a clash instead of failing. On a clash, a new UUID suffix is generated.
+- **ENG-1 (D6): engine boundary rules.**
+  - URCI is clamped to 0–100 on every curve, including q = 1.
+  - A density below a curve's first plotted point is interpolated linearly from (0, 0).
+  - The display integer is rounded once from the raw value (round half up).
+  - The section mean and the outlier test use raw values.
+- **IMP-1 (D7): import and stamp failures.**
+  - Unsafe paths, size limits, a bad or unsupported manifest version, or a manifest `count` that doesn't match the number of inspection.json entries reject the **whole** bundle, with a specific ID/EN message for each class.
+  - Schema-invalid records are skipped, and the result reads "X diimpor, Y dilewati (alasan)".
+  - If stamping runs out of memory, it retries at 1280 px. If that still fails, the raw photo stays pending with "⚠ Foto belum diproses".
+- **SEC-1 (D8): injection defense.**
+  - Record text is rendered via `textContent` only, never `innerHTML`.
+  - Strict CSP: `default-src 'self'; img-src 'self' data: blob:; script-src 'self'; style-src 'self'`.
+  - The schema caps text lengths: branch/section 40, inspector 60, remarks 1000, note 300.
+  - An evil-bundle test fixture covers this.
+- **UX-1 (D9): entry protection.**
+  - The draft autosaves to app-private storage on every change, and reopening asks "Lanjutkan draf?".
+  - Back with unsaved changes asks for confirmation.
+  - Save is disabled while a save is in flight.
+- **SYNC-2 (D10): photo consistency.**
+  - After applying any incoming version or tombstone, photo files that the record no longer lists are deleted.
+  - Section/date share selections include matching tombstones.
+  - The stamp step checks that the entry is still live before writing, and drops the raw photo otherwise.
+- **OBS-1 (D11): diagnostics.** A 1 MB rolling log lives in app-private storage, with no photos or GPS. It records saves, imports (X/Y with reasons), exports, stamp retries and errors, plus app and Android versions. Settings gets "Ekspor diagnostik".
+- **DEP-1 (D12): release safety.**
+  - CI publishes a SHA-256 checksum with each release, and fails if `versionCode` didn't increase.
+  - A hidden Settings "Uji mandiri" runs FS 101 and FS 144 on the device and shows pass/fail. It's the post-install smoke check.
+- **UI-1 (D13): field-ready UI.**
+  - Tap targets are at least 48×48 dp, larger in the quantity grid.
+  - High-contrast theme, body text at least 16 sp, numeric keypads for quantities.
+  - A one-time outdoor test with gloves on a real phone.
+- **INDEX-1 (D17):** `index.json` (key fields per record) exists from day one. It's rebuilt after import and on folder re-select, and checked against the folder on mismatch. This replaces the Open Question 1 default.
+- **CURVE-1 (D19):**
+  - A second person digitizes Appendix C independently. Points differing by more than 1 deduct get re-read.
+  - Tests assert each deduct in FS 101 and FS 144 within ±1, in addition to URCI within ±2.
+  - (The TM's metric worked examples are genuine: Figs 3-2 and 3-3 metric.)
+- **LOCAL-1 (D20):** every local read is schema- and length-validated. Broken files are shown as "⚠ File rusak (<name>)" and logged; they never crash the app.
+- **TEST-1 (D21):** minSdk stays at Android 8. The device test matrix becomes Android 9 or 10, 11, 13 and 14.
+- **HASH-1 (D22):** each stamped photo's SHA-256 is stored in inspection.json and re-checked on display and export. A mismatch shows "⚠ Foto diubah" in History and on the PDF.
+- **Corrections, with no change to approved behavior:**
+  - **Binary I/O:** `UrciStorage` gains binary read and write (base64), for photo display and PDF/xlsx/PNG export.
+  - **Camera:** the pending context (row, severity, IDs) is persisted *before* the camera launches, and `appRestoredResult` is handled after Android kills the app.
+  - **Effort:** ~5–6 weeks human, or ~1.5 days CC plus ~1.5 weeks human (curve digitizing ×2 readers, manual content and illustrations, device tests).
+  - **Rollback:** Full backup, uninstall, older APK, re-select the folder (~10 min per phone).
+  - **Versioning:** `schemaVersion` in each inspection.json, and newer apps read older records.
+  - **Kotlin:** limited to about 10 byte-moving methods with a unit test each. All decision logic stays in JS.
+  - **Exports and sharing:** SheetJS is used for export only. The >100 MB warning is an in-app dialog. Full backup shows progress with cancel.
+  - **Open Question 5** now also asks whether device management blocks sideloading.
+  - **Stamp example (live):** `83 KERITING · M · 01/10/2026 10:11 · I-HR01/S03/SU2 · -2.98712, 115.42301 ±4m`.
+  - **Stamp example (gallery):** `IMPOR GALERI · WAKTU MANUAL · 83 KERITING · M · 01/10/2026 10:11 · I-HR01/S03/SU2 · GPS: n/a`.
+  - **Bands in exports:** the 5 bands are labeled a site convention ("pengaturan lokal; TM 5-626 memakai 7 kelas").
+- **Declined:**
+  - SCOPE-1 single-phone v1 (D14): full multi-phone sync stays.
+  - ASSIGN-1 day-0 gate (D16): the Assignment stays during the build.
+  - GPS-1 (D18): the 10 s GPS wait stays.
+
+### Decision ledger
+| ID and owner | Contract and evidence | Current | Proposed | Status | Exact approval and scope |
+|---|---|---|---|---|---|
+| MODE (0E) | Review mode | HOLD SCOPE | — | approved | D3 answer "Hold scope" |
+| SYNC-1 (0G→OV#1) | Conflict close + rounds | One-tap resolver + month roundId | — | approved (reopened) | D4 deferral superseded by D15 "One-tap + month rounds" |
+| ERR-1 (S2) | Crash-safe writes, space checks | Safe-replace + recovery + space checks + messages | — | approved | D5 "Atomic + space + msgs"; mechanism corrected per OV#4 without behavior change |
+| ENG-1 (S2) | Engine edges | Clamp, (0,0) interp, round-once, raw mean | — | approved | D6 "Adopt rules + tests" |
+| IMP-1 (S2) | Import/stamp failures | Per-class msgs, partial import, version/count, stamp retry | — | approved | D7 "Full messages + partial" |
+| SEC-1 (S3) | Injection | textContent + CSP (img data:/blob:) + caps | — | approved | D8 "Text + CSP + caps"; CSP img-src per OV#5 correction |
+| UX-1 (S4) | Entry loss | Draft + prompt + lock | — | approved | D9 "Draft + prompt + lock" |
+| SYNC-2 (S4) | Photo consistency | Reconcile + tombstones in shares + live check | — | approved | D10 "Reconcile + carry deletes" |
+| OBS-1 (S8) | Diagnostics | 1 MB rolling log + export | — | approved | D11 "Local log + export" |
+| DEP-1 (S9) | Release safety | Checksum + versionCode gate + self-test | — | approved | D12 "Checksum+gate+self-test" |
+| UI-1 (S11) | Field UI | 48dp, contrast, 16sp, keypad, glove test | — | approved | D13 "Field-ready UI rules" |
+| SCOPE-1 (OV#3) | Single-phone v1 | Full sync kept | Single-phone | declined | D14 "Keep full sync" |
+| ASSIGN-1 (OV#2) | Assignment timing | During build | Day-0 gate | declined | D16 "Keep as is" |
+| INDEX-1 (OV#7) | index.json | Day one | — | approved (reopened OQ1 default) | D17 "Index from day one" |
+| GPS-1 (OV#8) | GPS wait | 10 s from Inspect | 60 s from launch | declined | D18 "Keep 10 s" |
+| CURVE-1 (OV#9) | Curve verification | 2nd digitizer + per-deduct asserts | — | approved | D19 "2nd digitizer + asserts" |
+| LOCAL-1 (OV#10) | Local reads | Validate + "File rusak" | — | approved | D20 "Validate local reads" |
+| TEST-1 (OV#13) | Android matrix | Add 9/10 | — | approved | D21 "Add Android 9/10 test" |
+| HASH-1 (OV#14) | Photo tamper | SHA-256 per photo | — | approved | D22 "Fingerprint photos" |
+
+Approval readiness: PASS (rows SYNC-1 D15, ERR-1 D5, ENG-1 D6, IMP-1 D7, SEC-1 D8, UX-1 D9, SYNC-2 D10, OBS-1 D11, DEP-1 D12, UI-1 D13, INDEX-1 D17, CURVE-1 D19, LOCAL-1 D20, TEST-1 D21, HASH-1 D22; declined SCOPE-1 D14, ASSIGN-1 D16, GPS-1 D18; mode D3)
+
+### Reality rows
+- REALITY: premise-table finding Verified from the TM (q>5.0 §3-4b(3), metric curves C-1/C-2/C-5/C-7, dust 2/4/15 C-4, FS101/FS144 Figs 3-2/3-3); unverified=5 (SAF reinstall behavior, WhatsApp MIME, Auto Backup exclusion, cold GPS time, photo size) docs/designs/urci-field-app.md:37
+- REALITY: already-done pass origin/main has only 74f6d7e (GeoMap Field); no URCI code exists index.html:1
+- REALITY: surface-check finding `npx cap sync android` and Gradle `assembleRelease` are not verified locally (Capacitor not installed); verify in the CI setup task docs/designs/urci-field-app.md:209
+- REALITY: binding-decisions pass No logged branch decisions; owner premises 7–9 and D3–D22 honored docs/designs/urci-field-app.md:51
+- REALITY: numbers finding The effort "CC ~2–3 h" [estimated] was corrected to ~1.5 days CC + ~1.5 weeks human; photo size 400–600 KB [estimated, re-measure before gate] docs/designs/urci-field-app.md:72
+- REALITY: deferred-asks pass No linked issue docs/designs/urci-field-app.md:1
+- REALITY: pr-count pass No .gstack/ship-policy.json, so the default is one PR per wave docs/designs/urci-field-app.md:208
+
+### NOT in scope
+- Single-phone v1 (SCOPE-1): declined, D14 (rejected, not deferred; full sync kept).
+- Day-0 assignment gate (ASSIGN-1): declined, D16 (the Assignment stays during the build).
+- 60 s GPS from launch (GPS-1): declined, D18 (the 10 s wait stays).
+- Side-by-side field-level conflict picker and flexible-length round merging: superseded by D15; not deferred.
+- Play Store release, map view, camera-assisted rating: never proposed in HOLD SCOPE.
+
+### What already exists
+- GeoMap Field `index.html`: GPS capture pattern and Indonesian UI tone, reused as patterns. Its CDN pdf.js and localStorage are deliberately not reused.
+- TM 5-626 PDF: curves, worked examples, the DA 7348-R layout and the manual source.
+
+### Dream state delta
+This plan delivers the single-site core of the 12-month ideal: scored sections, stamped evidence, trends and multi-phone exchange. Still missing: a named engineer actually acting on the trend (The Assignment), multi-site rollout, and camera-assisted rating.
+
+### Error & Rescue Registry
+| Codepath | Failure | Class | Rescued | Action | User sees |
+|---|---|---|---|---|---|
+| engine.computeUrci | bad input | InputError | Y | block save | red field + reason |
+| engine.computeUrci | off-chart high/low | OffChart | Y (ENG-1) | clamp / (0,0) interp + flag | "di luar grafik" flag |
+| engine.computeUrci | URCI <0 or >100 | Range | Y (ENG-1) | clamp | 0–100 value |
+| UrciStorage.pickFolder | cancel or revoked | FolderAccessLost | Y | re-select prompt | "Pilih folder data" |
+| UrciStorage.safeReplace | crash mid-write | PartialWrite | Y (ERR-1) | .new/.old recovery at startup | nothing lost |
+| UrciStorage.write* | disk full | NoSpace | Y (ERR-1) | pre-check, no partial write | space-needed message |
+| UrciStorage.createPhoto | name clash (SAF auto-rename) | NameClash | Y | existence check + new UUID | nothing |
+| camera | app killed during capture | ProcessDeath | Y | persisted context + appRestoredResult | photo attaches correctly |
+| stamp | out of memory | OutOfMemory | Y (IMP-1) | retry at 1280 px, then pending | "⚠ Foto belum diproses" |
+| geolocation | denied / no fix in 10 s | NoFix | Y | "GPS: n/a" | stamp text |
+| importZip | path/limit/manifest/version/count | BundleRejected | Y (IMP-1) | whole reject | class-specific message |
+| importZip | invalid record | SchemaInvalid | Y (IMP-1) | skip record | "Y dilewati (alasan)" |
+| local read | damaged/edited file | LocalInvalid | Y (LOCAL-1) | skip + log | "⚠ File rusak" |
+| photo display/export | hash mismatch | Tampered | Y (HASH-1) | flag | "⚠ Foto diubah" |
+| export (PDF/xlsx/zip) | out of memory / IO | ExportFailed | Y | message + log (OBS-1) | "Ekspor gagal (alasan)" |
+
+### Failure Modes Registry
+```
+CODEPATH            | FAILURE MODE              | RESCUED? | TEST? | USER SEES?           | LOGGED?
+--------------------|---------------------------|----------|-------|----------------------|--------
+engine              | negative URCI (q=1)       | Y        | Y     | clamped value        | n/a
+engine              | below first curve point   | Y        | Y     | value + flag         | n/a
+safeReplace         | kill mid-write            | Y        | Y     | nothing lost         | Y
+write               | disk full                 | Y        | Y     | space message        | Y
+createPhoto         | SAF auto-rename clash     | Y        | Y     | nothing              | Y
+camera              | process death             | Y        | Y(dev)| photo attached       | Y
+stamp               | OOM                       | Y        | Y     | pending marker       | Y
+stamp               | entry deleted mid-wait    | Y        | Y     | nothing (raw dropped)| Y
+import              | zip slip / bomb           | Y        | Y     | reject message       | Y
+import              | script in text            | Y        | Y     | plain text           | Y
+import              | truncated (count)         | Y        | Y     | reject message       | Y
+sync                | two-phone conflict        | Y        | Y     | one-tap choice       | Y
+sync                | tombstone resurrection    | Y        | Y     | stays deleted        | Y
+local read          | hand-edited file          | Y        | Y     | "File rusak"         | Y
+photo               | swapped on PC             | Y        | Y     | "Foto diubah"        | Y
+entry               | app killed before Save    | Y        | Y     | draft restored       | Y
+```
+CRITICAL GAPS: 0 (every row rescued, tested and visible).
+
+### Diagrams
+1. System architecture: Section 1 diagram (CEO review chat), with UrciStorage now including binary I/O and safe-replace.
+2. Data flow with shadow paths: Section 4 diagram, amended by ERR-1, IMP-1, UX-1, SYNC-2, LOCAL-1.
+3. State machine, inspection record:
+```
+ (draft) --Save--> [live] --edit--> [live, stamp+1] --delete--> [tombstone]
+    |  app killed -> restored draft         | import(incoming ahead) -> [live] fast-forward
+    |                                       | import(divergent) -> [conflict] --one-tap--> [live, union history]
+ invalid: tombstone -> live (blocked: tombstone wins via history); conflict -> export as resolved (blocked: flagged)
+```
+4. Error flow: Error & Rescue Registry above.
+5. Deployment: push → CI tests → tag urci-v* → signed APK + SHA-256 (versionCode gate) → GitHub Release → sideload → on-device "Uji mandiri".
+6. Rollback: export Full backup → uninstall → install older APK → re-select folder → verify with "Uji mandiri".
+
+### Stale Diagram Audit
+- Wireframe `docs/designs/urci-field-wireframe.png`: still accurate for layout. It predates the 📖 icon, (i) popups, GPS-less defaults and UI-1 sizing (noted in Screens).
+- No other ASCII diagrams exist in touched files.
+
+## Implementation Tasks
+Synthesized from this review's findings. Each task derives from a specific finding above. Run with Claude Code or Codex; checkbox as you ship.
+
+- [ ] **T1 (P1, human: ~3d / CC: ~1h assisted)**: curves: digitize Appendix C twice, independently, and reconcile into `curves.json`
+  - Surfaced by: CURVE-1 (D19), 0I hour 1
+  - Files: urci-app/www/curves.json, docs/designs/curve-digitizing.md
+  - Verify: diff of the two readings ≤1 deduct everywhere; FS101/FS144 per-deduct ±1, URCI ±2
+- [ ] **T2 (P1, human: ~2d / CC: ~20min)**: engine: implement urci-engine.js with the ENG-1 rules and q>5.0
+  - Surfaced by: ENG-1 (D6), Section 6
+  - Files: urci-app/www/urci-engine.js, urci-app/test/engine.test.js
+  - Verify: `node --test` covers q=0/1/9, TDV150 q=1→0, deduct=5.0, below first point, 84.45→84
+- [ ] **T3 (P1, human: ~1w / CC: ~1h)**: UrciStorage Kotlin plugin: SAF, binary I/O, safeReplace + recovery, space checks, streaming zip with validation, intents
+  - Surfaced by: ERR-1 (D5), IMP-1 (D7), outside voice #4/#5
+  - Files: urci-app/android/app/src/main/java/.../UrciStoragePlugin.kt, AndroidManifest.xml
+  - Verify: instrumented tests for kill-mid-write, disk full, zip slip, bomb, count mismatch, name clash
+- [ ] **T4 (P1, human: ~1w / CC: ~45min)**: store.js: sync rules, one-tap conflict, month roundIds, tombstones, photo reconcile, index.json, local validation, schemaVersion
+  - Surfaced by: SYNC-1 (D15), SYNC-2 (D10), INDEX-1 (D17), LOCAL-1 (D20)
+  - Files: urci-app/www/store.js, urci-app/test/sync.test.js
+  - Verify: fast-forward, conflict→one-tap→no recurrence on B, delete no-resurrect via partial share, orphan photo removed, broken file → "File rusak"
+- [ ] **T5 (P1, human: ~2d / CC: ~20min)**: photo pipeline: pre-launch context persist, appRestoredResult, 10 s GPS, stamp + OOM retry, live-entry check, SHA-256
+  - Surfaced by: outside voice #6, IMP-1, SYNC-2, HASH-1
+  - Files: urci-app/www/stamp.js, urci-app/www/photo.js
+  - Verify: device test with "Don't keep activities" on; pause-at-GPS-delete test; hash mismatch shows "Foto diubah"
+- [ ] **T6 (P1, human: ~3d / CC: ~30min)**: UI: 4 screens + UX-1 draft/lock + UI-1 rules + SEC-1 textContent/CSP
+  - Surfaced by: UX-1 (D9), UI-1 (D13), SEC-1 (D8)
+  - Files: urci-app/www/index.html, app.js, styles.css
+  - Verify: evil-bundle fixture renders as text; double-tap Save → 1 record; kill → "Lanjutkan draf?"; outdoor glove test
+- [ ] **T7 (P2, human: ~2d / CC: ~30min)**: exports: DA 7348-R PDF (site-neutral title, band table, footnote, hash flags), xlsx, graph PNG, backup with progress/cancel
+  - Surfaced by: premises 5/9, Section 7
+  - Files: urci-app/www/export.js
+  - Verify: PDF snapshot for FS101; backup >1.5 GB splits into parts that import back
+- [ ] **T8 (P2, human: ~1d / CC: ~15min)**: OBS-1 rolling log + "Ekspor diagnostik"; DEP-1 "Uji mandiri"
+  - Surfaced by: OBS-1 (D11), DEP-1 (D12)
+  - Files: urci-app/www/log.js, urci-app/www/selftest.js
+  - Verify: log caps at 1 MB with no GPS/photos; self-test passes on device
+- [ ] **T9 (P2, human: ~1d / CC: ~20min)**: CI: tests, cap sync, signed release, SHA-256, versionCode gate
+  - Surfaced by: DEP-1 (D12), reality surface-check
+  - Files: .github/workflows/urci-release.yml
+  - Verify: a tag build publishes APK + .sha256; a build without a versionCode bump fails
+- [ ] **T10 (P2, human: ~3d / CC: ~30min)**: bilingual manual + (i) popups from shared content
+  - Surfaced by: owner request (manual), Section 10
+  - Files: urci-app/www/manual/*.html, urci-app/www/help.json
+  - Verify: every (i) link opens an existing manual anchor (test)
+- [ ] **T11 (P1, human: ~2d / CC: n/a)**: device matrix: airplane-mode acceptance on Android 9/10, 11, 13, 14 + reinstall test
+  - Surfaced by: TEST-1 (D21), success criteria
+  - Files: docs/designs/urci-device-test.md
+  - Verify: checklist signed off per device
+
+_No new tasks from Section 5 beyond the T3/T4 design notes._
+
+### Completion Summary
+```
+  +====================================================================+
+  |            MEGA PLAN REVIEW — COMPLETION SUMMARY                   |
+  +====================================================================+
+  | Mode selected        | HOLD SCOPE                                  |
+  | System Audit         | Design doc only; no URCI code; GeoMap reuse |
+  |                      | limited to patterns; no TODOS.md            |
+  | Step 0               | HOLD SCOPE (D3); SYNC-1 deferred (D4),      |
+  |                      | later replaced by D15                       |
+  | Section 1  (Arch)    | 1 issue (rollback runbook, corrected)       |
+  | Section 2  (Errors)  | 15 error paths mapped, 0 GAPS remaining     |
+  | Section 3  (Security)| 1 issue found, 1 High (SEC-1, fixed)        |
+  | Section 4  (Data/UX) | 8 edge cases mapped, 0 unhandled            |
+  | Section 5  (Quality) | 3 issues found (corrected)                  |
+  | Section 6  (Tests)   | Diagram produced, 0 gaps                    |
+  | Section 7  (Perf)    | 1 issue found (backup progress)             |
+  | Section 8  (Observ)  | 1 gap found (OBS-1, fixed)                  |
+  | Section 9  (Deploy)  | 2 risks flagged (DEP-1, schemaVersion)      |
+  | Section 10 (Future)  | Reversibility: 4/5, debt items: 3           |
+  | Section 11 (Design)  | 1 issue (UI-1, fixed)                       |
+  +--------------------------------------------------------------------+
+  | NOT in scope         | written (5 items)                           |
+  | What already exists  | written                                     |
+  | Dream state delta    | written                                     |
+  | Error/rescue registry| 15 rows, 0 CRITICAL GAPS                    |
+  | Failure modes        | 16 total, 0 CRITICAL GAPS                   |
+  | TODOS.md updates     | 0 items proposed                            |
+  | Scope proposals      | 0 proposed, 0 accepted (HOLD SCOPE)         |
+  | CEO plan             | skipped by mode                             |
+  | Outside voice        | Claude Plan subagent (native fallback),     |
+  |                      | completed; Codex not installed, so no       |
+  |                      | outside coverage; 14 findings               |
+  | Lake Score           | 14/16 recommendations chose complete option |
+  | Diagrams produced    | 6 (arch, data flow, state, error,           |
+  |                      | deploy, rollback)                           |
+  | Stale diagrams found | 1 (wireframe predates help icons; noted)    |
+  | Unresolved decisions | 0                                           |
+  | Reality rows         | 7/7 rows (PLAN_REALITY), 5 unverified       |
+  +====================================================================+
+```
+
+PLAN_REALITY: phase=ceo rows=7/7 missing=none unverified=5 verdict=complete
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | mode: HOLD_SCOPE, 0 critical gaps (15 decisions approved, 3 declined) |
+| Outside Review | Claude Plan subagent (native fallback; Codex not installed) | Independent 2nd opinion | 1 | unavailable (external) / completed (native) | 14 findings (native); 14 resolved; 0 unresolved. No completed external review |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 0 | — | — |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+
+- **OUTSIDE COVERAGE:** codex, plan-review phase, unavailable (CLI not installed). The native fallback (Claude Plan subagent, same harness) completed with 14 findings, all resolved through D14–D22 or corrections. This is not external coverage.
+- **VERDICT:** CEO CLEARED. Eng review required.
+
+NO UNRESOLVED DECISIONS
