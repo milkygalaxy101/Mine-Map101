@@ -187,11 +187,11 @@ Approach A, with fully offline as a hard requirement.
 - **Wireframe:** [`docs/designs/urci-field-wireframe.png`](urci-field-wireframe.png)
 
 ## Open Questions
-None of these block the build; each has a default (owner confirmed 2026-11-01): 1) build without an index, add one only if slow; 2) use the proposed terms; 3) site-neutral PDF title; 4) free-text branch/section; 5) minSdk Android 8. Questions 2–4 are settled by The Assignment.
+None of these block the build; each has a default (owner confirmed 2026-11-01): 1) build without an index, add one only if slow; 2) use the proposed terms; 3) site-neutral PDF title (decided); 4) free-text branch/section; 5) minSdk Android 8. Questions 2–4 are settled by The Assignment.
 
 1. **SAF performance.** Check SAF/DocumentFile listing speed with 500+ inspection folders on a low-end phone. If it's slow, add a cached index file (`index.json`) rebuilt on folder re-select.
 2. **Indonesian distress terms.** Proposed: 81 *Penampang melintang tidak baik*, 82 *Drainase samping tidak memadai*, 83 *Keriting/Bergelombang*, 84 *Debu*, 85 *Lubang*, 86 *Alur roda*, 87 *Agregat lepas*. Confirm with site usage.
-3. **DA 7348-R branding.** Should the PDF title say "DA FORM 7348-R" or a site-neutral "Lembar Inspeksi Jalan Tanah / Unsurfaced Road Inspection Sheet (format DA 7348-R)"? The second avoids implying it is an official Army form.
+3. ~~**DA 7348-R branding.**~~ **Decided by owner (2026-11-01):** the PDF title is "Lembar Inspeksi Jalan Tanah / Unsurfaced Road Inspection Sheet (format DA 7348-R)", which keeps the familiar layout without implying an official Army form.
 4. **Section setup.** How branches and sections are defined at the site (KM chainage? named segments?) determines the History grouping.
 5. **Phones.** Minimum Android version and phone models the crew uses, to set `minSdkVersion` and the camera resolution budget.
 
