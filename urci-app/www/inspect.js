@@ -64,6 +64,7 @@
 
     async start() {
       this.pickers = (await this.kv.get('pickers')) || { branch: [], section: [] };
+      this.tipSeen = !!(await this.kv.get('tipSeen'));
       this.render();
       const raw = this.local.getItem(DRAFT_KEY);
       if (raw) {
@@ -125,10 +126,27 @@
       const t = this.t();
       this.mount.replaceChildren();
       if (this.testMode) this.mount.append(el('div', { class: 'banner info', role: 'note' }, icon('info', ''), el('p', { text: t.testStorage })));
+      if (!this.tipSeen) this.mount.append(this.renderTip());
       this.bodyBox = el('div');
       this.mount.append(this.renderHeader(), this.bodyBox);
       this.renderBody();
       this.renderBar();
+    }
+
+    // One-time "how to fill in" card (ST-1 tip), reopened from the Bantuan button.
+    renderTip() {
+      const t = this.t();
+      return el('section', { class: 'tip', 'aria-label': t.tipTitle },
+        el('h2', { text: t.tipTitle }),
+        el('ol', {}, ...t.tipSteps.map((x) => el('li', { text: x }))),
+        el('p', { class: 'note', text: t.tipMore }),
+        el('button', { class: 'btn-secondary', type: 'button', id: 'tip-ok', text: t.tipOk, onclick: async () => { this.tipSeen = true; await this.kv.set('tipSeen', true); this.render(); } }));
+    }
+
+    showTip() {
+      this.tipSeen = false;
+      this.render();
+      window.scrollTo(0, 0);
     }
 
     // Everything below the header. Header inputs are never rebuilt while the user moves between them,
@@ -140,7 +158,7 @@
       this.bodyBox.replaceChildren(
         closed ? el('div', { class: 'banner warning', role: 'status' }, icon('warning', ''), el('p', { text: t.roundClosed }),
           el('button', { class: 'btn-secondary', type: 'button', text: t.reopen, onclick: () => this.reopen(rid) })) : '',
-        el('h2', { class: 'block', text: t.block8 }), this.renderGrid(!!closed));
+        el('h2', { class: 'block', text: t.block8 }), el('p', { class: 'how', text: t.gridHow }), this.renderGrid(!!closed));
     }
 
     renderHeader() {
@@ -162,7 +180,7 @@
       const fields = el('div', { class: 'fields' });
       const field = (key, label, attrs = {}, wide = false, help = null) => {
         const id = 'f-' + key;
-        const input = el('input', { id, name: key, value: h[key], 'aria-invalid': this.errors[key] ? 'true' : null, 'aria-describedby': this.errors[key] ? id + '-err' : null, ...attrs });
+        const input = el('input', { id, name: key, value: h[key], placeholder: (t.ph && t.ph[key]) || null, 'aria-invalid': this.errors[key] ? 'true' : null, 'aria-describedby': this.errors[key] ? id + '-err' : null, ...attrs });
         input.value = h[key];
         input.addEventListener('input', () => {
           if ((key === 'branch' || key === 'section') && input.value !== input.value.toUpperCase()) {
@@ -180,7 +198,8 @@
         const labelRow = el('div', { class: 'label-row' }, el('label', { for: id, text: label }),
           help ? el('button', { class: 'help-btn', type: 'button', onclick: () => this.notice(label, help) }, icon('info', label)) : null);
         return el('div', { class: 'field' + (wide ? ' wide' : '') }, labelRow, input,
-          this.errors[key] ? el('div', { class: 'err', id: id + '-err', text: this.errors[key] }) : null);
+          this.errors[key] ? el('div', { class: 'err', id: id + '-err', text: this.errors[key] }) : null,
+          key === 'sampleArea' && !this.errors[key] ? el('div', { class: 'hint', text: t.areaHint }) : null);
       };
       const dl = (id, list) => el('datalist', { id }, ...list.map((v) => el('option', { value: v })));
       fields.append(
@@ -191,7 +210,7 @@
         field('sampleArea', t.sampleArea, { inputmode: 'decimal', maxlength: 8 }, false, t.sampleAreaHelp),
         field('inspector', t.inspector, { maxlength: 60, autocomplete: 'name' }),
         dl('dl-branch', this.pickers.branch), dl('dl-section', this.pickers.section));
-      wrap.append(fields, el('div', { class: 'chips', id: 'round-chips' }));
+      wrap.append(el('h2', { class: 'block', text: t.locationTitle }), fields, el('div', { class: 'chips', id: 'round-chips' }));
       queueMicrotask(() => this.renderRoundChip());
       return wrap;
     }
@@ -213,20 +232,21 @@
     renderGrid(disabled) {
       const t = this.t();
       const grid = el('div', { class: 'grid', role: 'group', 'aria-label': t.block8 });
-      grid.append(el('div', { class: 'grid-head', 'aria-hidden': 'true' }, el('span'), ...SEVS.map((s) => el('span', { text: t.sevShort[s] }))));
+      grid.append(el('div', { class: 'grid-head', 'aria-hidden': 'true' }, el('span'), ...SEVS.map((s) => el('span', { text: t.sevName[s] }))));
       const result = this.compute();
       const flags = new Map((result ? result.rows : []).map((r) => [`${r.code}-${r.sev}`, r.flags]));
       for (const code of CODES) {
         const d = t.distress[code];
         const label = el('button', { class: 'row-label', type: 'button', 'aria-label': `${code} ${d.name}. ${t.helpSource}`, onclick: () => this.notice(`${code} ${d.name}`, `${d.help}\n\n${d.fig} · ${t.helpSource}`) },
           el('span', { class: 'head' }, el('span', { class: 'code', text: code }), icon('info', '', 16)),
-          el('span', { class: 'short', text: d.short }), el('span', { class: 'full', text: d.name }));
+          el('span', { class: 'short', text: d.short }), el('span', { class: 'full', text: d.name }),
+          el('span', { class: 'measure', text: t.measure[d.unit || 'none'] }));
         const row = el('div', { class: 'grid-row' }, label);
         for (const sev of SEVS) {
           if (code === '84') {
             const on = this.state.dust === sev;
             row.append(el('button', { class: 'dust-chip', type: 'button', disabled, 'aria-pressed': on ? 'true' : 'false', 'aria-label': `${d.short}, ${t.sevName[sev]}`,
-              text: t.sevShort[sev], onclick: () => { this.state.dust = on ? null : sev; this.afterEntry(); } }));
+              text: t.sevName[sev], onclick: () => { this.state.dust = on ? null : sev; this.afterEntry(); } }));
             continue;
           }
           const key = `${code}-${sev}`;
@@ -259,8 +279,8 @@
       const band = r ? this.engine.rate(r.urci, this.bandLowers()) : null;
       const num = el('span', { class: 'urci-num', id: 'urci-num', 'aria-live': 'polite', 'aria-label': `${t.urci} ${urci === null ? '—' : urci}`, text: urci === null ? '—' : String(urci) });
       const meta = el('span', { class: 'result-meta' },
-        band === null ? el('span', { class: 'tq', text: t.tapForCalc }) : el('span', { class: `band band-${band}`, text: t.bands[band] }),
-        el('span', { class: 'tq', text: r ? `${t.tdv} ${this.fmt(r.tdv, 0)} · ${t.q} ${r.q}` : `${t.tdv} — · ${t.q} —` }));
+        band === null ? el('span', { class: 'need', text: t.needArea }) : el('span', { class: `band band-${band}`, text: t.bands[band] }),
+        r ? el('span', { class: 'tq', text: `${t.tdv} ${this.fmt(r.tdv, 0)} · ${t.q} ${r.q}` }) : null);
       bar.replaceChildren(
         el('button', { class: 'result-open', type: 'button', 'aria-label': `${t.urci} ${urci === null ? '—' : urci}. ${t.tapForCalc}`, onclick: () => this.openCalc() }, num, meta),
         el('button', { class: 'btn-primary', type: 'button', id: 'save', disabled: this.saving, onclick: () => this.save() }, this.saving ? t.saving : t.save));
@@ -287,10 +307,12 @@
       const d = t.distress[code];
       const key = `${code}-${sev}`;
       const unit = t.units[d.unit];
-      const input = el('input', { type: 'text', inputmode: code === '85' ? 'numeric' : 'decimal', 'aria-label': `${t.enterValue} (${unit})`, autocomplete: 'off' });
+      const input = el('input', { id: 'qty', type: 'text', inputmode: code === '85' ? 'numeric' : 'decimal', 'aria-label': `${t.enterValue} (${unit})`, autocomplete: 'off' });
       input.value = this.state.qty[key] === undefined ? '' : this.fmtQty(this.state.qty[key]);
       const err = el('p', { class: 'err-text', role: 'alert' });
-      const close = this.sheet(el('h2', { text: `${code} ${d.short} · ${t.sevName[sev]}` }), el('p', { class: 'sub', text: d.name }),
+      const close = this.sheet(el('h2', { text: `${code} ${d.short} · ${t.sevName[sev]}` }),
+        el('div', { class: 'sev-guide' }, el('span', { class: 'label', text: t.looksLike }), el('span', { text: d.sev[sev] })),
+        el('label', { class: 'ask', for: 'qty', text: t.ask[d.unit] }),
         el('div', { class: 'qty-input' }, input, el('span', { class: 'unit', text: unit })), err,
         this.state.qty[key] !== undefined ? el('button', { class: 'btn-secondary btn-block', type: 'button', disabled: true, 'aria-describedby': 'photo-note' }, icon('photo_camera', ''), ' ', t.takePhoto) : null,
         this.state.qty[key] !== undefined ? el('p', { class: 'note', id: 'photo-note', text: t.photoLater }) : null,
@@ -334,8 +356,8 @@
           el('div', { class: 'stamp-top' },
             el('div', { class: 'stamp-left' },
               el('div', { text: t.block9 }),
-              el('div', { text: `${t.tdv} ${this.fmt(r.tdv, 1)}` }),
-              el('div', { text: `${t.q} ${r.q} (${t.qRule})` }),
+              el('div', { text: `${t.tdvLabel}: ${this.fmt(r.tdv, 1)}` }),
+              el('div', { text: `${t.qLabel}: ${r.q}` }),
               el('div', { text: `${t.urci} ${this.fmt(r.urciRaw, 1)}` })),
             el('div', { class: 'stamp-num', 'aria-label': `${t.urci} ${r.urci}`, text: String(r.urci) })),
           el('div', { class: `stamp-band band-${band}`, text: `${t.bands[band]} · ${this.bandRange(band)}` })));

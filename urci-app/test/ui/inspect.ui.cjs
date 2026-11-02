@@ -49,6 +49,20 @@ async function run(browser, base, scale) {
   const tag = `[scale ${scale}]`;
 
   check((await page.textContent('#urci-num')).trim() === '—', `${tag} result bar shows "—" before any entry`);
+  // first-timer guidance (owner feedback: the screen must say what to do)
+  check(await page.locator('.tip li').count() === 3, `${tag} first open shows the 3-step "Cara mengisi" card`);
+  check((await page.textContent('.resultbar')).includes('Isi luas unit sampel'), `${tag} result bar says what is missing before an area is entered`);
+  check((await page.getAttribute('#f-branch', 'placeholder')) === 'contoh: I-HR01', `${tag} fields show example placeholders`);
+  check((await page.textContent('.how')).startsWith('Ketuk kotak'), `${tag} grid has a one-line instruction`);
+  check((await page.textContent('.grid-head')).includes('Berat'), `${tag} columns use full severity words`);
+  await page.click('#tip-ok');
+  check(await page.locator('.tip').count() === 0, `${tag} "Mengerti" dismisses the card`);
+  await page.reload();
+  await page.waitForSelector('#urci-num');
+  check(await page.locator('.tip').count() === 0, `${tag} card stays dismissed after reopening`);
+  await page.click('#help');
+  check(await page.locator('.tip').count() === 1, `${tag} Bantuan reopens the card`);
+  await page.click('#tip-ok');
   const noHScroll = async () => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
   check(await noHScroll(), `${tag} no horizontal scroll on empty form`);
 
@@ -64,6 +78,10 @@ async function run(browser, base, scale) {
   const cell = async (code, sevIndex, value) => {
     const row = page.locator('.grid-row').filter({ has: page.locator('.code', { hasText: code }) });
     await row.locator('button.cell').nth(sevIndex).click();
+    if (code === '83' || code === '86') {
+      check((await page.textContent('.sheet .sev-guide')).includes('cm'), `${tag} keypad for ${code} describes the severity (depth)`);
+      check((await page.textContent('.sheet .ask')).includes('meter persegi'), `${tag} keypad asks a plain question with the unit`);
+    }
     await page.fill('.sheet input', value);
     await page.click('.sheet .btn-primary');
   };

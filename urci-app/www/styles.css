@@ -71,6 +71,20 @@ main { padding: 0 var(--md); max-width: 720px; margin: 0 auto; }
 .chip { display: inline-flex; align-items: center; gap: var(--xs); padding: 2px var(--sm); border: 1px solid var(--rule); border-radius: var(--r-sm); font: 500 14px/1.6 Barlow; letter-spacing: .02em; }
 .chip.closed { color: var(--muted); }
 
+/* first-time guidance */
+.tip { margin: var(--md) 0 0; padding: var(--md); background: var(--tint); border-left: 4px solid var(--primary); border-radius: var(--r-lg); }
+.tip h2 { margin: 0 0 var(--sm); font: 600 20px/1.3 Barlow; }
+.tip ol { margin: 0 0 var(--sm); padding-left: 22px; }
+.tip li { margin-bottom: var(--xs); }
+.tip .note { margin: 0 0 var(--md); }
+.how { margin: 0 0 var(--sm); color: var(--ink); }
+.field .hint { color: var(--muted); font-size: 14px; }
+.field input::placeholder { color: #6B7280; opacity: 1; }
+.sev-guide { display: flex; flex-direction: column; gap: 2px; margin: 0 0 var(--md); padding: var(--sm) var(--md); background: var(--tint); border-radius: var(--r-sm); }
+.sev-guide .label { font: 500 14px Barlow; color: var(--muted); }
+.ask { display: block; margin-bottom: var(--xs); font: 600 18px/1.3 Barlow; }
+.result-meta .need { font: 500 14px/1.3 Barlow; color: var(--ink); }
+
 /* quantity grid */
 .grid { display: flex; flex-direction: column; }
 .grid-head, .grid-row { display: grid; grid-template-columns: minmax(var(--label), 1fr) repeat(3, var(--cell)); column-gap: var(--xs); align-items: center; }
@@ -86,6 +100,7 @@ main { padding: 0 var(--md); max-width: 720px; margin: 0 auto; }
 .row-label .head { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
 .row-label .code { font-weight: 600; }
 .row-label .icon { color: var(--primary); opacity: .8; }
+.row-label .measure { font: 400 13px/1.2 Barlow; color: var(--muted); margin-top: 2px; }
 .row-label .full { display: none; }
 @media (min-width: 600px) { .row-label .short { display: none; } .row-label .full { display: block; } }
 .cell {
@@ -99,7 +114,7 @@ main { padding: 0 var(--md); max-width: 720px; margin: 0 auto; }
 .cell:disabled, .dust-chip:disabled { opacity: .4; cursor: not-allowed; }
 .dust-chip {
   width: var(--cell); height: var(--target); justify-self: center; border: 1px solid var(--primary); border-radius: var(--r-sm);
-  background: var(--paper); color: var(--primary); font: 600 18px Barlow; cursor: pointer;
+  background: var(--paper); color: var(--primary); font: 600 16px Barlow; cursor: pointer; padding: 0 2px;
 }
 .dust-chip[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); }
 

@@ -48,10 +48,12 @@
       const t = content[lang];
       document.getElementById('title').textContent = t.inspect;
       langBtn.textContent = t.lang;
+      document.getElementById('help').textContent = t.help;
       langBtn.setAttribute('aria-label', t.langLabel);
       screen.render();
     }
     langBtn.addEventListener('click', () => setLang(lang === 'id' ? 'en' : 'id'));
+    document.getElementById('help').addEventListener('click', () => screen.showTip());
     render();
     await screen.start();
     window.__urci = { screen, store, curves }; // test hook
