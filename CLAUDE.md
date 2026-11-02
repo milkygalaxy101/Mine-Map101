@@ -48,3 +48,8 @@ Key routing rules:
 - Ship/deploy/PR → invoke /ship
 
 Do not suggest or auto-invoke other gstack skills: they run when the user types them, or when a running skill hands off to them (`gstack-config set proactive all` routes every skill).
+
+## Design System
+Read DESIGN.md before visual or UI work: it defines the fonts, colors, spacing, and
+aesthetic direction. Ask the user before departing from it. When reviewing or QA-ing
+UI, flag code that doesn't match DESIGN.md.

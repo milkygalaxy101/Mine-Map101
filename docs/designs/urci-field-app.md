@@ -905,7 +905,7 @@ These amendments are approved and supersede conflicting screen descriptions abov
 - **SLOP-1 (D15): icons.** Emoji are replaced by a bundled Material Symbols subset (~20 icons, offline): monochrome, 24 dp inside 48 dp targets, colored only for status (warning amber, error red), each with a TalkBack label.
 
 **Design system**
-- **DS-1 (D16): deferred.** The owner chose to run `/design-consultation` first, to define the visual system (colors, type, spacing, rating-band colors). Until then, only UI-1's rules apply (48 dp, high contrast, 16 sp, numeric keypads).
+- **DS-1 (D16): resolved 2026-11-02** by `/design-consultation`, which wrote `DESIGN.md` ("Certified field form": navy ink #1D3B6E on white, Barlow / Barlow Semi Condensed / IBM Plex Mono bundled, 8 dp grid, 72 dp cells with corner photo badge, band colors + labels). All screens follow DESIGN.md.
 
 **Responsive and accessibility**
 - **RA-1 (D17): grid layout.** Rows show code + short name (81 Penampang, 82 Drainase, 83 Keriting, 84 Debu, 85 Lubang, 86 Alur, 87 Agregat); the full name is in the (i) popup. L/M/H cells are 72 dp, and **the camera control sits on each filled cell**, so a photo always belongs to one exact severity. Full names show on wide or landscape screens. Tested at the largest system font, where labels wrap to 2 lines and are never truncated.
@@ -959,7 +959,7 @@ These amendments are approved and supersede conflicting screen descriptions abov
 
 ### NOT in scope (design)
 - "Save & next unit" (UJ-1): declined, D12.
-- Visual token system (DS-1): deferred to `/design-consultation`, D16.
+- Visual token system (DS-1): resolved by `/design-consultation` → `DESIGN.md`.
 - Mockups: none generated (no image API key).
 
 ### What already exists
@@ -1028,7 +1028,7 @@ Synthesized from this review's findings. Each task derives from a specific findi
 Not design-complete: Pass 5 (visual system) stays low until `/design-consultation` defines the tokens. Pass 3 is at 7 because "save and next unit" was declined.
 
 ### Unresolved Decisions
-- DS-1: visual token system (colors, type scale, spacing, band colors). Deferred to `/design-consultation` (D16).
+- None. DS-1 was resolved by `/design-consultation` (DESIGN.md, 2026-11-02).
 
 ## GSTACK REVIEW REPORT
 
@@ -1041,7 +1041,7 @@ Not design-complete: Pass 5 (visual system) stays low until `/design-consultatio
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
 - **OUTSIDE COVERAGE:** codex unavailable (not installed) for both the plan-review and design phases. The native Claude subagents completed both (in-harness, not external coverage).
-- **VERDICT:** CEO CLEARED. Design ISSUES OPEN (visual tokens pending /design-consultation). Eng review required.
+- **DESIGN SYSTEM:** DESIGN.md written by /design-consultation on 2026-11-02, resolving DS-1. A design review re-run would re-score Pass 5.
+- **VERDICT:** CEO CLEARED. Design review logged ISSUES OPEN before DS-1 was resolved; re-run /plan-design-review to clear it. Eng review required.
 
-**UNRESOLVED DECISIONS:**
-- DS-1 visual token system: deferred to /design-consultation
+NO UNRESOLVED DECISIONS
