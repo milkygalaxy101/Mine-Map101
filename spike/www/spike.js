@@ -42,6 +42,13 @@ function record(step, data, ok = true) {
   log(line, ok ? 'ok' : 'bad');
   status(line, !ok);
 }
+// Every native call either answers or times out with a clear message (no silent hang).
+function withTimeout(promise, msLimit, what) {
+  return Promise.race([
+    promise,
+    new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error(`${what}: tidak dijawab native dalam ${msLimit / 1000} dtk`), { code: 'NO_ANSWER' })), msLimit)),
+  ]);
+}
 function ms(t0) { return Math.round(performance.now() - t0); }
 function enable(...ids) { ids.forEach((id) => { $(id).disabled = false; }); }
 
@@ -54,7 +61,7 @@ async function blobToBase64(blob) {
 
 // ---------- 1. folder ----------
 $('btnFolder').onclick = async () => {
-  status('Membuka pemilih folder…');
+  status('Tombol ditekan · memanggil pickFolder…');
   const t0 = performance.now();
   // If the picker never appears, say so instead of doing nothing.
   let pickerShown = false;
@@ -62,7 +69,7 @@ $('btnFolder').onclick = async () => {
   document.addEventListener('visibilitychange', onHide);
   const timer = setTimeout(() => status('Pemilih folder belum muncul setelah 20 dtk. Kirim tangkapan layar ini.', true), 20000);
   try {
-    const r = await Spike.pickFolder();
+    const r = await withTimeout(Spike.pickFolder(), 180000, 'pickFolder');
     clearTimeout(timer);
     document.removeEventListener('visibilitychange', onHide);
     record('folder', { ms: ms(t0), uri: r.uri, pickerShown });
@@ -77,17 +84,18 @@ $('btnFolder').onclick = async () => {
 // ---------- GPS watch (warm-up) ----------
 async function startWatch() {
   try {
-    await Geo.requestPermissions();
+    await withTimeout(Geo.requestPermissions(), 60000, 'izin lokasi');
     watchId = await Geo.watchPosition({ enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 }, (pos, err) => {
       if (pos) lastFix = pos;
     });
   } catch (e) { log('watch gagal: ' + (e.message || e), 'warn'); }
 }
-startWatch();
+// GPS watch starts on first photo/GPS tap, not at launch (removes a startup suspect).
 
 // ---------- 2. capture + stamp ----------
 $('btnPhoto').onclick = async () => {
   const step = {};
+  if (watchId === null) startWatch();
   try {
     const fixAtLaunch = lastFix ? { acc: lastFix.coords.accuracy, ageMs: Date.now() - lastFix.timestamp } : null;
     step.fixAtLaunch = fixAtLaunch;
@@ -201,6 +209,7 @@ $('btnPdf').onclick = async () => {
 
 // ---------- 5. GPS ----------
 $('btnGps').onclick = async () => {
+  if (watchId === null) startWatch();
   const t0 = performance.now();
   try {
     const p = await Geo.getCurrentPosition({ enableHighAccuracy: true, timeout: 60000, maximumAge: 0 });
@@ -238,10 +247,10 @@ $('btnExport').onclick = async () => {
   const native = !!(C && C.isNativePlatform && C.isNativePlatform());
   const hasPlugin = !!(C && C.isPluginAvailable && C.isPluginAvailable('UrciSpike'));
   let d = {};
-  try { d = await Spike.diag(); } catch (e) { d = { diagError: e.code || e.message }; }
+  try { d = await withTimeout(Spike.diag(), 5000, 'diag'); } catch (e) { d = { diagError: e.code || e.message }; }
   results.diag = { webview: wv, native, hasPlugin, ...d };
   const msg = `Siap. Android ${d.release || '?'} (SDK ${d.sdk || '?'}) ${d.model || ''}\nWebView ${wv} · plugin ${hasPlugin ? 'OK' : 'TIDAK ADA'} · pemilih folder ${d.hasFolderPicker === false ? 'TIDAK ADA' : d.hasFolderPicker ? 'OK' : '?'}`;
   const bad = !native || !hasPlugin || d.hasFolderPicker === false || d.diagError;
-  status(msg + (d.diagError ? `\ndiag: ${d.diagError}` : ''), bad);
+  status(statusEl.textContent + '\n' + msg + (d.diagError ? `\ndiag: ${d.diagError}` : ''), bad);
   log(msg, bad ? 'bad' : 'ok');
 })();

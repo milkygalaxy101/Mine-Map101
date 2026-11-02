@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob: https://localhost; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' https://localhost; worker-src 'self' blob:">
+<!-- No CSP in this throwaway spike: removes one suspect while debugging the bridge. Production keeps SEC-1 CSP. -->
 <title>URCI Spike</title>
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
@@ -62,6 +62,7 @@
     <div id="log"></div></div>
 
   <canvas id="cv"></canvas>
+  <script src="boot.js"></script>
   <script src="spike.js"></script>
 </body>
 </html>
