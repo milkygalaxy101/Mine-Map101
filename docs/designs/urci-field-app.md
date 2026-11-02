@@ -1169,18 +1169,437 @@ Actual answer: A) Web Worker (D4, 2026-11-02)
 Accepted scope: PDF and xlsx generation runs in a Web Worker (`export.worker.js`) with progress messages and cancel; outputs unchanged; bundle zipping stays native.
 History: baseline was main thread (implied).
 
+#### R4: round-file merge (outside voice #1)
+Finding: OV-1, CRITICAL, confidence 8/10, docs/designs/urci-field-app.md ("`rounds/<roundId>.json` still holds the label and closedAt under the sync rules"), reviewer: Claude Plan subagent (native).
+Plan baseline: round files follow the inspection sync rules (CEO D15 + eng D2), so independently created month rounds are concurrent → conflict prompt.
+Runtime evidence: unknown (no code).
+Comparison grid:
+| Commitment | Current | A | B |
+|---|---|---|---|
+| R4 round sync | inspection conflict path | auto-merge: label = default unless one side renamed (latest vector wins), closedAt = set if either set, vector = element-wise max; no prompt | unchanged (prompt per shared round) |
+| Inspection conflicts | one-tap resolver (D15) | unchanged | unchanged |
+Question D5:
+D5 — R4: Merge month round files automatically instead of asking?
+(full brief as sent; see AskUserQuestion)
+Header: R4 Rounds
+Options:
+A) Auto-merge rounds (recommended)
+Round files merge without a prompt: element-wise max vector, closed if either side closed, default label unless one side renamed. Effort S, low risk.
+B) Keep conflict prompt
+Rounds use the inspection conflict path; every shared month round prompts. Effort S, noisy.
+
+State: approved
+Actual answer: A) Auto-merge rounds (D5, 2026-11-02)
+Accepted scope: Round files merge without prompt: vector = element-wise max, closedAt set if either side set, label = default unless one side renamed (dominating/latest rename wins). Inspection conflicts unchanged.
+History: none
+
+#### R5: meaning of "Tutup putaran" with month rounds (outside voice #3)
+Finding: OV-3, HIGH, confidence 8/10, docs/designs/urci-field-app.md ("The ⋮ menu on each round row has \"Tutup putaran\" (with confirm)" and "`roundId` is deterministic, `<sectionKey>-<yyyy-MM>`"), reviewer: Claude Plan subagent (native).
+Plan baseline: Tutup putaran exists (design P7-4, D22) but has no defined effect once roundIds are month-fixed.
+Runtime evidence: unknown.
+Comparison grid:
+| Commitment | Current | A | B |
+|---|---|---|---|
+| R5 closed-round effect | undefined | closed = read-only: new inspections of that section in that month are blocked with "Putaran ditutup · Buka kembali?"; reopen via ⋮ "Buka putaran" | remove Tutup putaran entirely; rounds are just months |
+| Round chip on Inspect (P7-4) | shown | unchanged (shows lock if closed) | unchanged (no lock) |
+Question D6:
+D6 — R5: What does closing a round do now that rounds are calendar months?
+(full brief as sent)
+Header: R5 Close round
+Options:
+A) Closed = locked, reopenable (recommended)
+Closing marks the month read-only for that section; new inspections there ask to reopen first. Effort S, low risk.
+B) Remove "Tutup putaran"
+Rounds are simply months; no close action. Effort S (less UI).
+
+State: approved
+Actual answer: A) Locked, reopenable (D6, 2026-11-02)
+Accepted scope: Closing a round makes that section-month read-only; a new inspection there prompts 'Putaran ditutup · Buka kembali?'; ⋮ menu gets 'Buka putaran'; closed rounds show a lock. Reopen is an edit (vector bump); merge rule R4: closed if either side closed unless reopen dominates.
+History: none
+
+#### R6: photo lifecycle before first Save (outside voice #6)
+Finding: OV-6, HIGH, confidence 8/10, docs/designs/urci-field-app.md ("writes the final JPEG **once** with create-new into the inspection folder" and UX-1 "The draft autosaves to app-private storage"), reviewer: Claude Plan subagent (native).
+Plan baseline: stamped photo written into the inspection folder, which only exists after Save; draft lives in app-private storage.
+Runtime evidence: unknown.
+Comparison grid:
+| Commitment | Current | A | B |
+|---|---|---|---|
+| R6 where photos live before Save | inspection folder (does not exist yet) | app-private `Directory.Data/draft-photos/`; Save moves them into the new folder and records name+hash in the same save; discarding the draft deletes them | Save is blocked until every photo on the form is stamped; photos still written at Save time from private storage |
+| Stamp finishing after Save | unspecified | Save waits (spinner, max ~10 s) for pending stamps on that form, then saves once | same as A |
+| Abandoned draft | orphan photos | deleted with the draft | deleted with the draft |
+Question D7:
+D7 — R6: Where do photos wait before an inspection is first saved?
+(full brief as sent)
+Header: R6 Draft photos
+Options:
+A) Private until Save (recommended)
+Draft photos stay app-private; Save waits for pending stamps, then moves photos into the new folder with their hashes in one save. Effort S, low risk.
+B) Block Save until stamped
+Save button disabled while any photo is processing; otherwise as A. Effort S, slower saves.
+
+State: approved
+Actual answer: A) Private until Save (D7, 2026-11-02)
+Accepted scope: Draft photos stamped into app-private Directory.Data/draft-photos/; Save waits (spinner, max ~10 s) for pending stamps, then creates the folder, moves photos in and records names+SHA-256 in the same save; discarding the draft deletes its photos. For already-saved records, a new photo is added via the same edit-save path (one vector bump).
+History: none
+
+#### R7: stamping mechanism vs WebView OOM (outside voice #4)
+Finding: OV-4, HIGH, confidence 7/10, docs/designs/urci-field-app.md (IMP-1 "If stamping runs out of memory, it retries at 1280 px"; "`stamp.js`: canvas burn-in, then resize, then JPEG at 85% quality"), reviewer: Claude Plan subagent (native).
+Plan baseline: full-resolution decode + stamp in a WebView canvas, retry smaller on OOM.
+Runtime evidence: unknown; renderer-kill behavior on low-end devices is not catchable in JS (to verify on device).
+Comparison grid:
+| Commitment | Current | A | B |
+|---|---|---|---|
+| R7 stamping mechanism | WebView canvas at full resolution | camera returns ≤2048 px (Capacitor width/height, quality 100, correctOrientation); gallery imports downscaled natively before reaching JS; canvas stamps ~4 MP | native decode (sampled) + stamp (Canvas.drawText) + JPEG encode in UrciStorage |
+| Stamp content/format (premise 8, SLOP-1, DESIGN mono) | approved | unchanged | unchanged |
+| Output 2048 px / JPEG 85 % | approved | unchanged | unchanged |
+| OOM retry (IMP-1) | 1280 px retry | kept as a secondary guard | kept (native catches OOM) |
+Question D8:
+D8 — R7: How should photos be shrunk and stamped so cheap phones don't crash?
+(full brief as sent)
+Header: R7 Stamping
+Options:
+A) Downscale first, stamp in JS (recommended)
+Camera/gallery deliver ≤2048 px before JS; canvas stamps ~4 MP; IMP-1 retry stays as a backup. Effort S, low risk.
+B) Native stamping in Kotlin
+Decode, stamp and encode in UrciStorage. Effort M, more Kotlin.
+
+State: approved
+Actual answer: A) Downscale first (D8, 2026-11-02)
+Accepted scope: Camera requested at ≤2048 px (width/height, quality 100, correctOrientation); gallery imports downscaled natively (sampled decode) to ≤2048 px before JS; canvas stamps ~4 MP then JPEG 85 %; IMP-1 1280 px retry kept as secondary guard; device test confirms resize honored.
+History: none
+
+#### R8: GPS without Google Play Services (outside voice #5)
+Finding: OV-5, HIGH, confidence 7/10, docs/designs/urci-field-app.md ("`@capacitor/geolocation` for GPS"), reviewer: Claude Plan subagent (native).
+Plan baseline: @capacitor/geolocation only; 10 s wait (CEO D18 kept). Correction applied without question: record last fix at camera launch, fresh request on resume.
+Runtime evidence: unknown which phones the crew uses (Open Question 5).
+Comparison grid:
+| Commitment | Current | A | B |
+|---|---|---|---|
+| R8 location source | fused provider (Play Services) only | fused when available, else Android LocationManager GPS_PROVIDER via UrciStorage | fused only; Open Question 5 confirms phones have Play Services |
+| GPS wait 10 s (D18) | kept | unchanged | unchanged |
+| Fix-at-launch correction | applied | unchanged | unchanged |
+Question D9:
+D9 — R8: Support phones without Google services for GPS?
+(full brief as sent)
+Header: R8 GPS source
+Options:
+A) Add native GPS fallback (recommended)
+Use Google's fused location when present, otherwise Android's built-in GPS provider. Effort S, low risk.
+B) Google services only
+Confirm crew phones have Play Services; no fallback. Effort S (none), risk on Huawei-type phones.
+
+State: approved
+Actual answer: A) Native GPS fallback (D9, 2026-11-02)
+Accepted scope: Location via Google fused provider when Play Services present, else Android LocationManager GPS_PROVIDER through UrciStorage; 10 s wait (D18) and fix-at-camera-launch correction unchanged; device test on a phone without Play Services.
+History: none
+
+#### R9: photo transfer to the WebView (outside voice #12)
+Finding: OV-12, MEDIUM, confidence 7/10, docs/designs/urci-field-app.md ("`UrciStorage` gains binary read and write (base64), for photo display and PDF/xlsx/PNG export"; eng D4 Web Worker), reviewer: Claude Plan subagent (native).
+Plan baseline: photos and finished PDFs cross the Capacitor bridge as base64 on the main thread; PDF/xlsx built in a Web Worker (D4).
+Runtime evidence: unknown; bridge cost to be measured on device.
+Comparison grid:
+| Commitment | Current | A | B |
+|---|---|---|---|
+| R9 photo/file transfer | base64 over bridge | UrciStorage serves files via a local URL handler (WebView loads photos directly; worker fetches them); finished exports streamed to SAF by native code from a worker-produced Blob URL | base64 over bridge (as planned) |
+| PDF/xlsx in Web Worker (D4) | approved | unchanged | unchanged |
+| Minimum WebView version check | none | startup check (min Chromium 80) with clear message | same check (correction applies to both) |
+Question D10:
+D10 — R9: How should photos move between storage and the screen/PDF builder?
+(full brief as sent)
+Header: R9 Photo transfer
+Options:
+A) Local URL handler (recommended)
+Native serves photos/exports via an app-local URL; no base64 over the bridge. Effort M, medium risk.
+B) Base64 over the bridge
+Keep as planned; measure in the device spike. Effort S, freeze risk on old phones.
+
+State: approved
+Actual answer: A) Local URL handler (D10, 2026-11-02)
+Accepted scope: UrciStorage serves data-folder files at an app-local URL (WebView intercept, read-only, data-folder scoped) for photo display and worker fetches; finished exports written by native code from worker-produced bytes without base64 bridge round-trips; startup WebView version check (min Chromium 80) with message. D4 worker unchanged.
+History: none
+
+#### R10: phone clock vs GPS time (outside voice #14)
+Finding: OV-14, MEDIUM, confidence 7/10, docs/designs/urci-field-app.md ("roundId is deterministic, `<sectionKey>-<yyyy-MM>`"; stamp date/time from "the phone's own clock"), reviewer: Claude Plan subagent (native).
+Plan baseline: phone clock trusted for stamps, folder names and month rounds.
+Runtime evidence: unknown drift on crew phones.
+Comparison grid:
+| Commitment | Current | A | B |
+|---|---|---|---|
+| R10 clock check | none | when a GPS fix exists, compare phone time with GPS time; >5 min difference shows a banner "Jam HP berbeda dari GPS (±N menit) · Periksa pengaturan waktu" before stamping; stamp still uses phone time | none |
+| Stamp time source | phone clock | unchanged | unchanged |
+Question D11:
+D11 — R10: Warn when the phone's clock disagrees with GPS time?
+(full brief as sent)
+Header: R10 Clock check
+Options:
+A) Warn on >5 min drift (recommended)
+Compare phone clock to GPS time when a fix exists; show a banner before stamping. Effort S, low risk.
+B) Trust the phone clock
+No check. Effort S (none).
+
+State: approved
+Actual answer: A) Warn on >5 min drift (D11, 2026-11-02)
+Accepted scope: When a GPS fix exists, compare phone time with GPS time; difference >5 min shows banner 'Jam HP berbeda dari GPS (±N menit) · Periksa pengaturan waktu' before stamping (ST-2 banner surface); stamp keeps phone time; drift logged (OBS-1).
+History: none
+
+#### R11: storage test strategy (outside voice #15)
+Finding: OV-15, MEDIUM, confidence 8/10, docs/designs/urci-field-app.md (eng D3 "JUnit + Robolectric … Playwright UI smoke tests on www/ with filesystem stubbed"), reviewer: Claude Plan subagent (native).
+Plan baseline: D3 stack; Robolectric for UrciStorage; separate stubs in Playwright and node:test.
+Runtime evidence: Robolectric has no real SAF provider (rename/auto-rename/persisted-permission semantics only exist on devices).
+Comparison grid:
+| Commitment | Current | A | B |
+|---|---|---|---|
+| R11 storage fakes | separate stubs per layer | one shared JS `UrciStorage` fake used by node:test and Playwright | separate stubs |
+| SAF contract tests | Robolectric | same contract suite run against the real plugin on CI emulators API 26, 30, 34 | Robolectric only |
+| Robolectric scope | whole plugin | zip/validation logic behind a java.io.File abstraction | whole plugin |
+| Test tools (D3) | approved | unchanged | unchanged |
+Question D12:
+D12 — R11: Test the storage plugin on real Android emulators in CI?
+(full brief as sent)
+Header: R11 Storage tests
+Options:
+A) Shared fake + emulator contract tests (recommended)
+One JS storage fake; the same contract tests also run against the real plugin on API 26/30/34 emulators in CI. Effort M, low risk.
+B) Keep Robolectric + per-layer stubs
+As approved in D3. Effort S, SAF behavior unverified until device tests.
+
+State: approved
+Actual answer: A) Emulator contract tests (D12, 2026-11-02)
+Accepted scope: One shared JS UrciStorage fake for node:test and Playwright; one storage contract suite run against the fake and against the real plugin on CI emulators API 26, 30, 34; Robolectric limited to zip/validation logic behind a java.io.File abstraction. D3 tools unchanged.
+History: none
+
+#### R12: Android 15/16 coverage (outside voice #16)
+Finding: OV-16, MEDIUM, confidence 8/10, docs/designs/urci-field-app.md (TEST-1 "The device test matrix becomes Android 9 or 10, 11, 13 and 14"), reviewer: Claude Plan subagent (native).
+Plan baseline: device matrix 9/10, 11, 13, 14.
+Runtime evidence: Android 15 enforces edge-to-edge for apps targeting SDK 35+ (platform behavior); keyboard/system-bar insets affect IA-2's sticky result bar.
+Comparison grid:
+| Commitment | Current | A | B |
+|---|---|---|---|
+| R12 device matrix | 9/10, 11, 13, 14 | 9/10, 11, 13, 15 (+16 emulator) with explicit window-inset and keyboard test of the sticky bar | unchanged |
+| Target SDK | unspecified | latest required by tooling (35+) with edge-to-edge insets handled | unspecified |
+Question D13:
+D13 — R12: Add Android 15/16 and an edge-to-edge layout test?
+(full brief as sent)
+Header: R12 New Android
+Options:
+A) Add 15/16 + inset test (recommended)
+Matrix 9/10, 11, 13, 15 (+16 emulator); test the sticky URCI bar with keyboard and system bars. Effort S, low risk.
+B) Keep matrix at 14
+No change. Effort S (none), new-phone layout risk.
+
+State: approved
+Actual answer: A) Add 15/16 + inset test (D13, 2026-11-02)
+Accepted scope: Device matrix: Android 9 or 10, 11, 13, 15 (real phone; emulator fallback) + 16 emulator; target SDK 35+ with edge-to-edge insets handled; explicit test that the sticky URCI bar and Save stay visible with keyboard open and system bars shown.
+History: none
+
+#### R13: week-1 device spike gate (outside voice #7)
+Finding: OV-7, HIGH, confidence 8/10, docs/designs/urci-field-app.md (T11 device matrix scheduled last; no early feasibility check), reviewer: Claude Plan subagent (native).
+Plan baseline: device testing at the end (T11); Assignment during build (CEO D16).
+Runtime evidence: WebView stamping, SAF rename/listing, URL-handler transfer and GPS behavior all unverified on target hardware.
+Comparison grid:
+| Commitment | Current | A | B |
+|---|---|---|---|
+| R13 spike | none | week-1 spike on one cheap Android 8/9 phone: capture → downscaled stamp → SAF safe-replace → 20-photo PDF via worker + URL handler → GPS with camera open; record timings; stop-and-replan if any step fails | none |
+| Feature scope and Assignment timing (D16) | approved | unchanged (spike is engineering-only) | unchanged |
+Question D14:
+D14 — R13: Run a one-week device spike before building the full app?
+(full brief as sent)
+Header: R13 Spike
+Options:
+A) Week-1 spike, stop on failure (recommended)
+Prove capture, stamp, SAF write, 20-photo PDF and GPS on a cheap Android 8/9 phone first, with timings. Effort S (~3–5 days), low risk.
+B) No spike
+Build in task order; device issues surface in T11. Effort S (none), late-surprise risk.
+
+State: approved
+Actual answer: A) Week-1 spike (D14, 2026-11-02)
+Accepted scope: Week-1 engineering spike on one cheap Android 8/9 phone: capture → ≤2048 px stamp → SAF safe-replace → 20-photo PDF via worker + URL handler → GPS fix with camera open; timings recorded in docs/designs/urci-spike.md; any failed step stops the build for re-plan. Feature scope and Assignment timing (D16) unchanged.
+History: none
+
+Approval readiness: PASS (R1 D2, R2 D3, R3 D4, R4 D5, R5 D6, R6 D7, R7 D8, R8 D9, R9 D10, R10 D11, R11 D12, R12 D13, R13 D14; structure D1)
+
+### Eng Review Amendments (approved 2026-11-02; supersede conflicting text above)
+- **Approved decisions** (full records in the Decision ledger):
+  - D1 smaller arrangement;
+  - R1 version vector;
+  - R2 node:test + JUnit/Robolectric + Playwright;
+  - R3 PDF/xlsx in a Web Worker;
+  - R4 round files auto-merge;
+  - R5 closed round = locked, reopenable;
+  - R6 draft photos private until Save;
+  - R7 downscale at capture, stamp in JS;
+  - R8 native GPS fallback;
+  - R9 local URL handler instead of base64;
+  - R10 clock-vs-GPS drift banner;
+  - R11 shared fake + emulator contract tests (API 26/30/34);
+  - R12 Android 15/16 + inset test;
+  - R13 week-1 device spike gate.
+- **Corrections from the outside voice** (mechanism fixes for approved behavior; no question needed):
+  - **OV-2:** the import regex accepts `rounds/<sanitized sectionKey>-<yyyy-MM>.json` (sectionKey sanitized like folder tokens, `^[A-Za-z0-9-]{1,41}-\d{4}-\d{2}$`). Photo entries must match `^\d{2}-[LMH]-\d{8}-\d{6}-[0-9a-f]{8}\.jpg$` (code-severity, date-time, uuid8). One shared regex module is used by JS and Kotlin.
+  - **OV-5:** the last fix is recorded when the camera launches, and a fresh request is made on resume. The 10 s wait (D18) is unchanged.
+  - **OV-8:** two versions with identical content (canonical hash excluding the vector) merge silently by element-wise max. Only differing independent resolutions re-conflict (this corrects "can't come back").
+  - **OV-9:** per-record counter, `n = vv[me] + 1`. `device.json` holds only the deviceId.
+  - **OV-10:** photo cleanup treats the union of photos referenced by the live record and any open `.conflict-*` version as kept. A delete-vs-edit conflict keeps the incoming photos until resolved.
+  - **OV-11:** import is two streamed passes over the content URI.
+    1. Validate names, actual inflated byte counts, duplicates, manifest, count and schemas.
+    2. Stream accepted entries straight into the data folder.
+
+    There's no staging, and the space check is ≥ 1.1 × the accepted bytes.
+  - **OV-13:** jsPDF embeds Barlow and IBM Plex Mono TTF subsets. Symbols missing from those fonts (⚠ ▼) are replaced by text ("PERINGATAN", "turun"). Canvas stamping awaits `document.fonts.load()`.
+  - **OV-17:** `index.json` lives at the data folder root and is excluded from bundles. It carries a generation counter plus the folder count; startup compares them with one directory query and rebuilds on mismatch.
+  - **OV-18:** the manual and docs state that a USB copy is backup-only, never a merge, and that backups should be moved off the phone.
+  - **OV-19:** Kotlin estimate ~800–1,200 lines.
+  - **OV-20:**
+    - Capacitor needs `package.json` (D3's zero-dependency claim applies to the test runner only);
+    - the generated manual/popup output is committed;
+    - SheetJS is vendored from its own CDN (the npm 0.18.5 build carries CVE-2023-30533 and CVE-2024-22363);
+    - the CI checkout uses `fetch-depth: 0` for the versionCode gate.
+- **Engineering guidance** (no behavior change):
+  - Kotlin rejects with typed codes (`NO_SPACE`, `NAME_CLASH`, `PERMISSION_LOST`, `BUNDLE_INVALID:<class>`, `IO`).
+  - `curves.json` has a fixed schema, validated at load.
+  - Bands come only from `engine.bands(settings)`.
+  - A CI check fails when the content.id and content.en keys differ.
+
+### Reality rows
+- REALITY: premise-table finding Verified (TM: q>5.0, metric curves, dust deducts, FS examples; repo: no package.json or tests, `git ls-files`); unverified=5 (SAF provider/OEM behavior, WebView min version on crew phones, camera resize honored, Play Services presence, GPS fix time and photo size) docs/designs/urci-field-app.md:37
+- REALITY: already-done pass origin/main has only 74f6d7e; no URCI code index.html:1
+- REALITY: surface-check finding `npx cap sync android`, Gradle `assembleRelease` and Capacitor camera `width/height/correctOrientation` options are unverified locally (no Capacitor install); verify in R13 spike docs/designs/urci-field-app.md:209
+- REALITY: binding-decisions pass Honors CEO D3/D14/D16/D18 keeps and design D12 decline; no reintroduced overruled default docs/designs/urci-field-app.md:51
+- REALITY: numbers finding Kotlin "~300 lines" corrected to ~800–1,200 [estimated]; export freeze duration [estimated, re-measure in spike]; photo size [estimated] docs/designs/urci-field-app.md:92
+- REALITY: deferred-asks pass No linked issue docs/designs/urci-field-app.md:1
+- REALITY: pr-count pass No .gstack/ship-policy.json → one PR per wave docs/designs/urci-field-app.md:208
+
+### NOT in scope (eng)
+- Native stamping in Kotlin: R7 chose downscale-first. Revisit only if the spike shows a canvas OOM at ~4 MP.
+- Vitest: R2 chose node:test.
+- Main-thread export and base64 bridge transfer: rejected by R3 and R9.
+- Google-services-only location: rejected by R8.
+
+### What already exists
+- GeoMap Field `index.html`: no shared runtime (browser APIs, CDN pdf.js, localStorage), so nothing is extracted. Only its UI tone and Indonesian terms are reused.
+- Android SAF (ACTION_OPEN_DOCUMENT_TREE + takePersistableUriPermission) is the platform primitive behind UrciStorage. No maintained Capacitor plugin covers it, so the plugin is custom **[Layer 1]**.
+
+### Diagrams
+```
+SAVE / PHOTO / SYNC PIPELINE
+ cell camera ─► Camera(≤2048px) ─► stamp (canvas, fonts loaded) ─► Data/draft-photos/
+                                                   │
+ Save ─► wait pending stamps ─► store.save: vv[me]+1 ─► UrciStorage.safeReplace(inspection.json)
+                                   │                  └► move draft photos → folder (+SHA-256)
+                                   └► index.json gen+1
+ Import ─► pass1 validate (names, bytes, dupes, manifest, count, schema) ─► pass2 stream
+          ─► per record: vv compare ─► dominates: replace │ dominated: keep │ equal content: merge
+                                     │ concurrent: .conflict-* (photos of both kept) │ round file: auto-merge (R4)
+
+INSPECTION STATE
+ draft ─Save─► live ─edit─► live(vv↑) ─delete─► tombstone
+                │ import concurrent ─► conflict ─one-tap─► live(vv=max+1)
+ ROUND: open ─Tutup─► closed(locked) ─Buka─► open      (merge: closed if either closed unless reopen dominates)
+```
+Inline diagram needed in: `store.js` (the vector compare/apply table), `UrciStorage.kt` (safe-replace and recovery states).
+
+### Failure modes
+| Path | Realistic failure | Covered by | User sees |
+|---|---|---|---|
+| Camera | process death during capture | persisted context + appRestoredResult; device test | photo attaches correctly |
+| Stamp | renderer OOM | ≤2048 px input (R7); 1280 retry; spike | pending marker |
+| GPS | camera foregrounded / no Play Services | fix-at-launch + R8 fallback; device test | "GPS: n/a" or coordinates |
+| Clock | drifted phone clock | R10 banner | drift banner |
+| Save | crash mid-write | safe-replace + recovery; emulator contract test | nothing lost |
+| Import | bad/truncated/hostile bundle | two-pass validation; evil-bundle tests | class message |
+| Sync | same-month rounds on 2 phones | R4 auto-merge; unit test | no prompt |
+| Sync | independent identical resolutions | OV-8 equal-content merge; unit test | no prompt |
+| Index | crash between record and index save | generation counter; unit test | auto rebuild |
+| Export | large PDF | worker + URL handler; spike timing | progress + cancel |
+| Layout | Android 15 edge-to-edge | R12 inset test | bar visible |
+Critical gaps: 0.
+
+### Worktree parallelization strategy
+| Step | Modules touched | Depends on |
+|------|----------------|------------|
+| S0 spike (R13) | throwaway prototype | — |
+| S1 curves + engine | www/engine, curves | — (runs during S0) |
+| S2 UrciStorage plugin | android/ | S0 |
+| S3 store + sync + index | www/store | S1 shape, S2 API contract (shared fake) |
+| S4 media (camera/stamp/GPS) | www/media, android/ | S0, S2 |
+| S5 screens + content | www/screens, content | S3, S4 |
+| S6 export worker | www/export | S2 (URL handler), S3 |
+| S7 CI + release | .github/ | S1 |
+
+**Lanes:**
+- Lane A: S1 → S3 → S5 (www core).
+- Lane B: S0 → S2 → S4 → S6 (native + media).
+- Lane C: S7 (independent).
+
+**Execution order:** launch S0, S1 and S7 together. After S0 passes, run S2. S3 starts on the shared fake contract and merges after S2. Then S4 and S6, then S5.
+**Conflict flags:** `android/` is shared by S2 and S4 (sequence them). The `www/store` API is shared by S3, S5 and S6 (freeze the contract first).
+
+## Implementation Tasks (eng review)
+Synthesized from this review's findings. Each task derives from a specific finding above. Run with Claude Code or Codex; checkbox as you ship.
+
+- [ ] **E-T1 (P1, human: ~4d / CC: ~2h)**: spike: capture → stamp → SAF → 20-photo PDF → GPS on a cheap Android 8/9 phone, with timings
+  - Surfaced by: R13 (D14), OV-4/5/12
+  - Files: spike/ (throwaway), docs/designs/urci-spike.md
+  - Verify: every step passes; timings recorded; stop and re-plan on any failure
+- [ ] **E-T2 (P1, human: ~1d / CC: ~20min)**: repo scaffold: Capacitor package.json, www/ layout per D1, content build + key-parity check, vendored libs (SheetJS from CDN)
+  - Surfaced by: D1, OV-20
+  - Files: package.json, capacitor.config.json, www/, scripts/build-content.mjs
+  - Verify: `node scripts/build-content.mjs` regenerates the manual; the parity check fails on a missing key
+- [ ] **E-T3 (P1, human: ~3d / CC: ~45min)**: store.js with version vectors, equal-content merge, round auto-merge/lock, conflict photo retention, index generation counter
+  - Surfaced by: R1, R4, R5, OV-8/9/10/17
+  - Files: www/store.js, test/store.test.mjs
+  - Verify: `node --test` covers dominate/dominated/concurrent/equal, round merge, closed-round reopen prompt, conflict photo kept, index rebuild
+- [ ] **E-T4 (P1, human: ~1.5w / CC: ~1.5h)**: UrciStorage: SAF, safe-replace + recovery, typed errors, two-pass import, URL handler, native GPS fallback, gallery downscale
+  - Surfaced by: ERR-1, R8, R9, OV-2/11, R7
+  - Files: android/app/src/main/java/.../UrciStoragePlugin.kt, shared regex module
+  - Verify: contract suite passes on emulators API 26/30/34; Robolectric zip/validation tests
+- [ ] **E-T5 (P1, human: ~2d / CC: ~30min)**: media: ≤2048 capture, fonts-loaded stamping, draft-photo lifecycle, clock drift banner
+  - Surfaced by: R6, R7, R10, OV-13
+  - Files: www/media.js
+  - Verify: Playwright with the shared fake (save waits for stamps, abandoned draft deletes photos); drift banner at 6 min offset
+- [ ] **E-T6 (P2, human: ~2d / CC: ~30min)**: export worker: jsPDF with embedded TTF subsets, xlsx, progress/cancel via URL handler
+  - Surfaced by: R3, R9, OV-13
+  - Files: www/export.js, www/export.worker.js
+  - Verify: FS 101 PDF golden renders every glyph; a 20-photo PDF completes without UI freeze in the spike
+- [ ] **E-T7 (P2, human: ~2d / CC: ~45min)**: CI: node:test, Robolectric, emulator contract matrix 26/30/34, Playwright, fetch-depth 0 versionCode gate, SHA-256
+  - Surfaced by: R2, R11, DEP-1, OV-20
+  - Files: .github/workflows/ci.yml, .github/workflows/release.yml
+  - Verify: the PR pipeline is green; a tag without a versionCode bump fails
+- [ ] **E-T8 (P2, human: ~1d / CC: n/a)**: device matrix Android 9/10, 11, 13, 15 (+16 emulator), with inset/keyboard test and a no-Play-Services phone
+  - Surfaced by: R12, R8, TEST-1
+  - Files: docs/designs/urci-device-test.md
+  - Verify: checklist signed off per device
+
+### Unresolved decisions
+None in this review.
+
+### Eng Review Completion Summary
+- Step 0: Scope Challenge — scope accepted as-is (smaller arrangement, D1)
+- Reality rows: 7/7 applicable rows emitted (PLAN_REALITY complete), 5 unverified premises
+- Architecture Review: 1 issue found (R1)
+- Code Quality Review: 2 issues found (guidance: typed errors, curves schema)
+- Test Review: diagram produced, 1 gap identified (no framework, R2)
+- Performance Review: 1 issue found (R3)
+- NOT in scope: written
+- What already exists: written
+- TODOS.md updates: 0 items proposed to user
+- Failure modes: 0 critical gaps flagged
+- Unresolved decisions: 0 in this review
+- Outside voice: Claude Plan subagent (native fallback, Codex not installed), completed, 20 findings (10 decided via D5–D14, 10 applied as corrections)
+- Parallelization: 3 lanes, 2 parallel / 1 sequential-dependent
+- Lake Score: 9/10
+
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | mode: HOLD_SCOPE, 0 critical gaps |
-| Outside Review | Claude subagents (native fallback; Codex not installed) | Independent 2nd opinion | 2 | unavailable (external) / completed (native) | CEO plan voice: 14 findings, 14 resolved; design voice: 22 findings fed into passes |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 0 | — | — |
-| Design Review | `/plan-design-review` | UI/UX gaps | 1 | ISSUES OPEN | score: 2/10 → 3/10, 18 decisions |
+| Outside Review | Claude Plan subagents (native fallback; Codex not installed) | Independent 2nd opinion | 2 | unavailable (external) / completed (native) | CEO: 14 findings, 14 resolved; Eng: 20 findings, 20 resolved (10 decisions, 10 corrections) |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | ISSUES OPEN (all mapped to tasks) | 5 issues, 0 critical gaps |
+| Design Review | `/plan-design-review` | UI/UX gaps | 1 | ISSUES OPEN (logged before DS-1 resolved) | score: 2/10 → 3/10, 18 decisions |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
-- **OUTSIDE COVERAGE:** codex unavailable (not installed) for both the plan-review and design phases. The native Claude subagents completed both (in-harness, not external coverage).
-- **DESIGN SYSTEM:** DESIGN.md written by /design-consultation on 2026-11-02, resolving DS-1. A design review re-run would re-score Pass 5.
-- **VERDICT:** CEO CLEARED. Design review logged ISSUES OPEN before DS-1 was resolved; re-run /plan-design-review to clear it. Eng review required.
+- **OUTSIDE COVERAGE:** codex unavailable (not installed) for the CEO, design and eng phases. Native Claude subagents completed all three (in-harness, not external coverage).
+- **VERDICT:** CEO CLEARED. Eng review complete with 0 unresolved decisions and 0 critical gaps; its status is ISSUES OPEN because 5 findings became implementation tasks. The design review predates DESIGN.md (re-run /plan-design-review to refresh Pass 5).
 
 NO UNRESOLVED DECISIONS
