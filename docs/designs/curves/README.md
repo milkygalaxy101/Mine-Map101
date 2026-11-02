@@ -1,4 +1,4 @@
-# Appendix C curves — reader 1 (DRAFT)
+# Appendix C curves — reader 1 (DRAFT), reader 2 compared
 
 **Status:** draft, reader 1 of 2 (CURVE-1). The app must not ship these numbers until a second,
 independent human reading agrees with them within tolerance (±1 per deduct value, ±2 URCI).
@@ -37,6 +37,40 @@ FS144 86-M  35.0 -> 30.32 (30) TM 31  OK
 FS144 86-H  65.0 -> 45.01 (45) TM 44  OK
 FS144 TDV 133.0 q 4 URCI 22.82 (23) TM 25  OK (edge of ±2)
 ```
+
+## Reader 2 comparison (2026-11-02)
+
+Reader 2's hand readings are in `reader2/reader2-filled.csv`. `python3 compare.py reader2/reader2-filled.csv`
+writes `reader2/comparison.csv` (every point) and `reader2/reread-list.csv` (points to re-read, without
+reader-1 values so the re-read stays independent).
+
+| Chart | Points | Re-read (>±1) | Max diff | Mean diff (r2 − r1) |
+|---|---|---|---|---|
+| 81 | 33 | 0 | 0.5 | −0.04 |
+| 82 | 33 | 0 | 0.8 | +0.10 |
+| 83 | 36 | 0 | 0.7 | −0.05 |
+| 85 | 36 | 0 | 0.9 | −0.01 |
+| 86 | 39 | 1 | 1.1 | −0.07 |
+| 87 | 27 | 1 | 1.6 | −0.06 |
+| C-8 (URCI) | 57 | 21 | 4.1 | +0.46 |
+
+- **Deduct charts agree.** The two flagged points look like reading slips on the reader-2 side: 87-M at 5 %
+  reads 3.5, between the L value 3.0 and the H value 7, which breaks the smooth 2.5 → ? → 9 run. 86-H at 2 %
+  is on the steepest part of the ruts chart.
+- **C-8:**
+  - q=3 at TDV 100 (32 against 36.1) is a reader-2 slip: their run 49 → 32 → 26 is not smooth, and the scan
+    shows the line at about 36.
+  - The other flags are 1.0–1.8, and reader 2 is mostly higher for q=5–7.
+- **The chart's own drafting limit is about ±1.** The q=0/1 line is exactly 100 − TDV, and measured
+  against the printed grid it drifts from +0.9 (TDV 0–20) to −0.4 (TDV 80–100). Differences of 1–1.5 between
+  careful readers are at that limit.
+- Reader-1 values at the flagged C-8 points were re-checked on the scan. At TDV 80 the lines sit at q2 42.3,
+  q3 48.8, q4 53.9, q5 59.2 and q6/7 61.6, matching the table to within 0.3.
+- 9 C-8 cells at TDV 20–40 were filled for q=3…7 where those lines have not started yet; they should be
+  blank and were not compared.
+
+**Status:** deduct curves are ready to reconcile once reader 2 re-reads 86-H 2 % and 87-M 5 %. C-8 waits for
+the 21-point re-read. `curves.json` stays `draft-reader1` until then.
 
 ## Things reader 2 must look at
 

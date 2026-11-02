@@ -1,0 +1,274 @@
+chart;figure;pdf_page_label;severity_or_q;x (density % or TDV);y (deduct or URCI) - FILL IN
+81;C-1 bottom (metric);C-1;L;2;2
+81;C-1 bottom (metric);C-1;L;5;4
+81;C-1 bottom (metric);C-1;L;10;8
+81;C-1 bottom (metric);C-1;L;15;11
+81;C-1 bottom (metric);C-1;L;20;14
+81;C-1 bottom (metric);C-1;L;25;16
+81;C-1 bottom (metric);C-1;L;30;18
+81;C-1 bottom (metric);C-1;L;35;20
+81;C-1 bottom (metric);C-1;L;40;22
+81;C-1 bottom (metric);C-1;L;45;24
+81;C-1 bottom (metric);C-1;L;50;25
+81;C-1 bottom (metric);C-1;M;2;2
+81;C-1 bottom (metric);C-1;M;5;4.5
+81;C-1 bottom (metric);C-1;M;10;9
+81;C-1 bottom (metric);C-1;M;15;13
+81;C-1 bottom (metric);C-1;M;20;17
+81;C-1 bottom (metric);C-1;M;25;21
+81;C-1 bottom (metric);C-1;M;30;24
+81;C-1 bottom (metric);C-1;M;35;27
+81;C-1 bottom (metric);C-1;M;40;29.5
+81;C-1 bottom (metric);C-1;M;45;32
+81;C-1 bottom (metric);C-1;M;50;33
+81;C-1 bottom (metric);C-1;H;2;3
+81;C-1 bottom (metric);C-1;H;5;7
+81;C-1 bottom (metric);C-1;H;10;13
+81;C-1 bottom (metric);C-1;H;15;19
+81;C-1 bottom (metric);C-1;H;20;24
+81;C-1 bottom (metric);C-1;H;25;28
+81;C-1 bottom (metric);C-1;H;30;32
+81;C-1 bottom (metric);C-1;H;35;35
+81;C-1 bottom (metric);C-1;H;40;38
+81;C-1 bottom (metric);C-1;H;45;41
+81;C-1 bottom (metric);C-1;H;50;43
+82;C-2 bottom (metric);C-2;L;2;1
+82;C-2 bottom (metric);C-2;L;5;2.5
+82;C-2 bottom (metric);C-2;L;10;4
+82;C-2 bottom (metric);C-2;L;15;6.5
+82;C-2 bottom (metric);C-2;L;20;8.5
+82;C-2 bottom (metric);C-2;L;25;11
+82;C-2 bottom (metric);C-2;L;30;12.5
+82;C-2 bottom (metric);C-2;L;35;14.5
+82;C-2 bottom (metric);C-2;L;40;16
+82;C-2 bottom (metric);C-2;L;45;18
+82;C-2 bottom (metric);C-2;L;50;20
+82;C-2 bottom (metric);C-2;M;2;1.8
+82;C-2 bottom (metric);C-2;M;5;4
+82;C-2 bottom (metric);C-2;M;10;7
+82;C-2 bottom (metric);C-2;M;15;11
+82;C-2 bottom (metric);C-2;M;20;14
+82;C-2 bottom (metric);C-2;M;25;17
+82;C-2 bottom (metric);C-2;M;30;20
+82;C-2 bottom (metric);C-2;M;35;22
+82;C-2 bottom (metric);C-2;M;40;24
+82;C-2 bottom (metric);C-2;M;45;26
+82;C-2 bottom (metric);C-2;M;50;28
+82;C-2 bottom (metric);C-2;H;2;3
+82;C-2 bottom (metric);C-2;H;5;5
+82;C-2 bottom (metric);C-2;H;10;10
+82;C-2 bottom (metric);C-2;H;15;14
+82;C-2 bottom (metric);C-2;H;20;18
+82;C-2 bottom (metric);C-2;H;25;21
+82;C-2 bottom (metric);C-2;H;30;25
+82;C-2 bottom (metric);C-2;H;35;28
+82;C-2 bottom (metric);C-2;H;40;31.5
+82;C-2 bottom (metric);C-2;H;45;35
+82;C-2 bottom (metric);C-2;H;50;38
+83;C-3;C-3;L;2;1.5
+83;C-3;C-3;L;5;3.5
+83;C-3;C-3;L;10;6.4
+83;C-3;C-3;L;20;12.5
+83;C-3;C-3;L;30;17
+83;C-3;C-3;L;40;21
+83;C-3;C-3;L;50;24
+83;C-3;C-3;L;60;26.5
+83;C-3;C-3;L;70;28.3
+83;C-3;C-3;L;80;30
+83;C-3;C-3;L;90;32
+83;C-3;C-3;L;100;33
+83;C-3;C-3;M;2;1.8
+83;C-3;C-3;M;5;4.5
+83;C-3;C-3;M;10;8
+83;C-3;C-3;M;20;15.5
+83;C-3;C-3;M;30;21
+83;C-3;C-3;M;40;26
+83;C-3;C-3;M;50;30.5
+83;C-3;C-3;M;60;34
+83;C-3;C-3;M;70;36.5
+83;C-3;C-3;M;80;39
+83;C-3;C-3;M;90;41
+83;C-3;C-3;M;100;43
+83;C-3;C-3;H;2;3
+83;C-3;C-3;H;5;5
+83;C-3;C-3;H;10;11
+83;C-3;C-3;H;20;21
+83;C-3;C-3;H;30;28.5
+83;C-3;C-3;H;40;35
+83;C-3;C-3;H;50;40
+83;C-3;C-3;H;60;45
+83;C-3;C-3;H;70;49
+83;C-3;C-3;H;80;53
+83;C-3;C-3;H;90;56
+83;C-3;C-3;H;100;60
+85;C-5 right (metric);C-4;L;1;2
+85;C-5 right (metric);C-4;L;2;3
+85;C-5 right (metric);C-4;L;3;5
+85;C-5 right (metric);C-4;L;5;8
+85;C-5 right (metric);C-4;L;7;10
+85;C-5 right (metric);C-4;L;10;14
+85;C-5 right (metric);C-4;L;15;19
+85;C-5 right (metric);C-4;L;20;24
+85;C-5 right (metric);C-4;L;25;28
+85;C-5 right (metric);C-4;L;30;32
+85;C-5 right (metric);C-4;L;40;38
+85;C-5 right (metric);C-4;L;50;42
+85;C-5 right (metric);C-4;M;1;4
+85;C-5 right (metric);C-4;M;2;6
+85;C-5 right (metric);C-4;M;3;9
+85;C-5 right (metric);C-4;M;5;15
+85;C-5 right (metric);C-4;M;7;19
+85;C-5 right (metric);C-4;M;10;24
+85;C-5 right (metric);C-4;M;15;32
+85;C-5 right (metric);C-4;M;20;38
+85;C-5 right (metric);C-4;M;25;43
+85;C-5 right (metric);C-4;M;30;47
+85;C-5 right (metric);C-4;M;40;54
+85;C-5 right (metric);C-4;M;50;60
+85;C-5 right (metric);C-4;H;1;10
+85;C-5 right (metric);C-4;H;2;18
+85;C-5 right (metric);C-4;H;3;24
+85;C-5 right (metric);C-4;H;5;32
+85;C-5 right (metric);C-4;H;7;36
+85;C-5 right (metric);C-4;H;10;41
+85;C-5 right (metric);C-4;H;15;48
+85;C-5 right (metric);C-4;H;20;54
+85;C-5 right (metric);C-4;H;25;60
+85;C-5 right (metric);C-4;H;30;65
+85;C-5 right (metric);C-4;H;40;74
+85;C-5 right (metric);C-4;H;50;82
+86;C-6;C-5;L;2;3
+86;C-6;C-5;L;5;8
+86;C-6;C-5;L;10;13
+86;C-6;C-5;L;15;17
+86;C-6;C-5;L;20;20
+86;C-6;C-5;L;30;23
+86;C-6;C-5;L;40;25
+86;C-6;C-5;L;50;26
+86;C-6;C-5;L;60;27.5
+86;C-6;C-5;L;70;28
+86;C-6;C-5;L;80;29
+86;C-6;C-5;L;90;30
+86;C-6;C-5;L;100;30.3
+86;C-6;C-5;M;2;4
+86;C-6;C-5;M;5;10
+86;C-6;C-5;M;10;17
+86;C-6;C-5;M;15;22
+86;C-6;C-5;M;20;26
+86;C-6;C-5;M;30;29
+86;C-6;C-5;M;40;31
+86;C-6;C-5;M;50;33
+86;C-6;C-5;M;60;34
+86;C-6;C-5;M;70;35
+86;C-6;C-5;M;80;36
+86;C-6;C-5;M;90;37
+86;C-6;C-5;M;100;38
+86;C-6;C-5;H;2;6
+86;C-6;C-5;H;5;14
+86;C-6;C-5;H;10;20.5
+86;C-6;C-5;H;15;25
+86;C-6;C-5;H;20;28
+86;C-6;C-5;H;30;32
+86;C-6;C-5;H;40;36
+86;C-6;C-5;H;50;40
+86;C-6;C-5;H;60;43
+86;C-6;C-5;H;70;46
+86;C-6;C-5;H;80;50
+86;C-6;C-5;H;90;53
+86;C-6;C-5;H;100;56
+87;C-7 bottom (metric);C-6;L;2;1.5
+87;C-7 bottom (metric);C-6;L;5;3
+87;C-7 bottom (metric);C-6;L;10;5.5
+87;C-7 bottom (metric);C-6;L;15;8
+87;C-7 bottom (metric);C-6;L;20;10
+87;C-7 bottom (metric);C-6;L;30;13.5
+87;C-7 bottom (metric);C-6;L;40;16
+87;C-7 bottom (metric);C-6;L;50;18
+87;C-7 bottom (metric);C-6;L;60;19
+87;C-7 bottom (metric);C-6;L;70;20
+87;C-7 bottom (metric);C-6;M;2;2.5
+87;C-7 bottom (metric);C-6;M;5;3.5
+87;C-7 bottom (metric);C-6;M;10;9
+87;C-7 bottom (metric);C-6;M;15;12.5
+87;C-7 bottom (metric);C-6;M;20;14
+87;C-7 bottom (metric);C-6;M;30;18
+87;C-7 bottom (metric);C-6;M;40;22
+87;C-7 bottom (metric);C-6;M;50;24
+87;C-7 bottom (metric);C-6;M;60;26.5
+87;C-7 bottom (metric);C-6;M;70;29
+87;C-7 bottom (metric);C-6;H;2;3
+87;C-7 bottom (metric);C-6;H;5;7
+87;C-7 bottom (metric);C-6;H;10;12
+87;C-7 bottom (metric);C-6;H;15;17
+87;C-7 bottom (metric);C-6;H;20;21
+87;C-7 bottom (metric);C-6;H;30;27
+87;C-7 bottom (metric);C-6;H;40;32
+87;C-7 bottom (metric);C-6;H;50;37
+87;C-7 bottom (metric);C-6;H;60;42
+87;C-7 bottom (metric);C-6;H;70;46.5
+URCI;C-8;C-7;q=2;20;85
+URCI;C-8;C-7;q=2;30;77.5
+URCI;C-8;C-7;q=2;40;70
+URCI;C-8;C-7;q=2;60;55
+URCI;C-8;C-7;q=2;80;42.5
+URCI;C-8;C-7;q=2;100;30
+URCI;C-8;C-7;q=2;120;20
+URCI;C-8;C-7;q=2;140;10
+URCI;C-8;C-7;q=2;160;3
+URCI;C-8;C-7;q=2;180;0
+URCI;C-8;C-7;q=2;200;0
+URCI;C-8;C-7;q=3;20;90
+URCI;C-8;C-7;q=3;30;83
+URCI;C-8;C-7;q=3;40;75
+URCI;C-8;C-7;q=3;60;63
+URCI;C-8;C-7;q=3;80;49
+URCI;C-8;C-7;q=3;100;32
+URCI;C-8;C-7;q=3;120;26
+URCI;C-8;C-7;q=3;140;17
+URCI;C-8;C-7;q=3;160;9
+URCI;C-8;C-7;q=3;180;2
+URCI;C-8;C-7;q=3;200;0
+URCI;C-8;C-7;q=4;20;95
+URCI;C-8;C-7;q=4;30;87
+URCI;C-8;C-7;q=4;40;80
+URCI;C-8;C-7;q=4;60;68
+URCI;C-8;C-7;q=4;80;55
+URCI;C-8;C-7;q=4;100;42
+URCI;C-8;C-7;q=4;120;30
+URCI;C-8;C-7;q=4;140;20
+URCI;C-8;C-7;q=4;160;12
+URCI;C-8;C-7;q=4;180;5
+URCI;C-8;C-7;q=4;200;1
+URCI;C-8;C-7;q=5;20;97
+URCI;C-8;C-7;q=5;30;90
+URCI;C-8;C-7;q=5;40;83
+URCI;C-8;C-7;q=5;60;70
+URCI;C-8;C-7;q=5;80;60
+URCI;C-8;C-7;q=5;100;48
+URCI;C-8;C-7;q=5;120;38
+URCI;C-8;C-7;q=5;140;27
+URCI;C-8;C-7;q=5;160;18
+URCI;C-8;C-7;q=5;180;12
+URCI;C-8;C-7;q=5;200;7
+URCI;C-8;C-7;q=6;20;100
+URCI;C-8;C-7;q=6;30;90
+URCI;C-8;C-7;q=6;40;85
+URCI;C-8;C-7;q=6;60;75
+URCI;C-8;C-7;q=6;80;63
+URCI;C-8;C-7;q=6;100;52
+URCI;C-8;C-7;q=6;120;41
+URCI;C-8;C-7;q=6;140;33
+URCI;C-8;C-7;q=6;160;23
+URCI;C-8;C-7;q=6;180;15
+URCI;C-8;C-7;q=6;200;10
+URCI;C-8;C-7;q=7;20;100
+URCI;C-8;C-7;q=7;30;90
+URCI;C-8;C-7;q=7;40;85
+URCI;C-8;C-7;q=7;60;75
+URCI;C-8;C-7;q=7;80;63
+URCI;C-8;C-7;q=7;100;52
+URCI;C-8;C-7;q=7;120;41
+URCI;C-8;C-7;q=7;140;33
+URCI;C-8;C-7;q=7;160;25
+URCI;C-8;C-7;q=7;180;20
+URCI;C-8;C-7;q=7;200;18
