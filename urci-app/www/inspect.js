@@ -346,7 +346,11 @@
         el('tbody', {}, ...GRID.map((row, i) => el('tr', {},
           el('th', { scope: 'row', text: pt.depths[i] }),
           ...row.map((s) => el('td', { class: s === sev ? 'mark' : '', 'aria-label': t.sevName[s], 'aria-current': s === sev ? 'true' : null, text: t.sevShort[s] }))))));
-      return el('div', { class: 'pothole' }, table, el('p', { class: 'note', text: pt.legend }), el('p', { class: 'note', text: pt.big }), el('p', { class: 'note', text: pt.tools }));
+      // Closed by default so the pothole keypad looks like the other six; the table is there when unsure.
+      const box = el('div', { class: 'pothole', id: 'pothole-table', hidden: true }, table);
+      const toggle = el('button', { class: 'btn-tertiary', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'pothole-table', text: pt.show,
+        onclick: () => { const open = box.hidden; box.hidden = !open; toggle.textContent = open ? pt.hide : pt.show; toggle.setAttribute('aria-expanded', String(open)); } });
+      return el('div', { class: 'pothole-wrap' }, toggle, box);
     }
 
     // ---------- calc sheet (UJ-3, H2) ----------

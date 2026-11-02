@@ -89,11 +89,12 @@ async function run(browser, base, scale) {
   {
     const row = page.locator('.grid-row').filter({ has: page.locator('.code', { hasText: '85' }) });
     await row.locator('button.cell').nth(1).click();
+    check(!(await page.isVisible('.sheet .pothole-table')), `${tag} pothole size table is closed by default (keypad looks like the others)`);
+    await page.click('.sheet .pothole-wrap .btn-tertiary');
     const marked = await page.locator('.sheet .pothole-table td.mark').allTextContents();
-    check(marked.length === 4 && marked.every((x) => x === 'S'), `${tag} pothole keypad (Sedang) marks the 4 Sedang cells of Table B-1, got ${JSON.stringify(marked)}`);
-    check((await page.textContent('.sheet .pothole')).includes('bagi 7'), `${tag} pothole keypad explains the > 1 m rule (area ÷ 7)`);
+    check(marked.length === 4 && marked.every((x) => x === 'S'), `${tag} "Lihat tabel ukuran" opens Table B-1 with the 4 Sedang cells marked, got ${JSON.stringify(marked)}`);
     check(await page.evaluate(() => document.querySelector('.sheet').scrollWidth <= document.querySelector('.sheet').clientWidth), `${tag} pothole table fits the sheet width`);
-    await page.click('.sheet .btn-tertiary');
+    await page.click('.sheet .sheet-actions .btn-tertiary');
   }
   await cell('81', 1, '30,5');
   check(await page.locator('.summary').count() === 1, `${tag} header collapses to the summary line after the first fill`);
