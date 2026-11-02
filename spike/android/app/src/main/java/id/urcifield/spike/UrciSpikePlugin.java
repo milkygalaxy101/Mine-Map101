@@ -12,6 +12,10 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -39,6 +43,8 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -280,6 +286,83 @@ public class UrciSpikePlugin extends Plugin {
             lm.removeUpdates(holder[0]);
             call.reject("no fix in " + timeoutMs + " ms", "NO_FIX");
         }, timeoutMs);
+    }
+
+    // ---------- downscale at capture (eng R7) ----------
+    // The camera plugin returns the full sensor image at `uri` (3072x4080 on the first test phone)
+    // even with targetWidth/targetHeight, so the app downscales here before JS ever decodes it.
+    // Pass 1 decodes bounds only; pass 2 decodes with a power-of-two inSampleSize so the full image
+    // is never held in memory; then an exact scale to maxEdge, EXIF rotation, JPEG to app cache.
+    @PluginMethod
+    public void downscale(PluginCall call) {
+        String src = call.getString("uri");
+        int maxEdge = call.getInt("maxEdge", 2048);
+        int quality = call.getInt("quality", 92);
+        if (src == null) {
+            call.reject("uri required", "BAD_ARGS");
+            return;
+        }
+        long t0 = System.nanoTime();
+        Uri uri = src.startsWith("/") ? Uri.fromFile(new File(src)) : Uri.parse(src);
+        try {
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            try (InputStream in = getContext().getContentResolver().openInputStream(uri)) {
+                BitmapFactory.decodeStream(in, null, bounds);
+            }
+            int sw = bounds.outWidth, sh = bounds.outHeight;
+            if (sw <= 0 || sh <= 0) {
+                call.reject("not an image", "BAD_IMAGE");
+                return;
+            }
+            int sample = 1;
+            // largest power-of-two step that keeps the long edge >= 3/4 of maxEdge (4080 -> 2040, 8160 -> 2040)
+            while (Math.max(sw, sh) / (sample * 2) >= maxEdge * 3 / 4) sample *= 2;
+            BitmapFactory.Options opts = new BitmapFactory.Options();
+            opts.inSampleSize = sample;
+            Bitmap bmp;
+            try (InputStream in = getContext().getContentResolver().openInputStream(uri)) {
+                bmp = BitmapFactory.decodeStream(in, null, opts);
+            }
+            if (bmp == null) {
+                call.reject("decode failed", "BAD_IMAGE");
+                return;
+            }
+            int rotation = 0;
+            try (InputStream in = getContext().getContentResolver().openInputStream(uri)) {
+                int o = new ExifInterface(in).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+                rotation = o == ExifInterface.ORIENTATION_ROTATE_90 ? 90 : o == ExifInterface.ORIENTATION_ROTATE_180 ? 180 : o == ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
+            } catch (Exception ignored) {
+            }
+            float scale = Math.min(1f, (float) maxEdge / Math.max(bmp.getWidth(), bmp.getHeight()));
+            Matrix m = new Matrix();
+            m.postScale(scale, scale);
+            if (rotation != 0) m.postRotate(rotation);
+            Bitmap out = Bitmap.createBitmap(bmp, 0, 0, bmp.getWidth(), bmp.getHeight(), m, true);
+            if (out != bmp) bmp.recycle();
+            File dir = new File(getContext().getCacheDir(), "pending");
+            if (!dir.exists() && !dir.mkdirs()) throw new Exception("cannot create cache dir");
+            File dst = new File(dir, "ds-" + System.currentTimeMillis() + ".jpg");
+            try (FileOutputStream fo = new FileOutputStream(dst)) {
+                out.compress(Bitmap.CompressFormat.JPEG, quality, fo);
+            }
+            JSObject ret = new JSObject();
+            ret.put("path", dst.getAbsolutePath());
+            ret.put("width", out.getWidth());
+            ret.put("height", out.getHeight());
+            ret.put("srcWidth", sw);
+            ret.put("srcHeight", sh);
+            ret.put("inSampleSize", sample);
+            ret.put("rotation", rotation);
+            ret.put("bytes", dst.length());
+            ret.put("ms", (System.nanoTime() - t0) / 1e6);
+            out.recycle();
+            call.resolve(ret);
+        } catch (OutOfMemoryError e) {
+            call.reject("out of memory", "OOM");
+        } catch (Exception e) {
+            call.reject(String.valueOf(e.getMessage()), "IO");
+        }
     }
 
     // ---------- helpers ----------

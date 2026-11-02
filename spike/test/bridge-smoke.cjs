@@ -15,7 +15,7 @@ const path = require('path');
     const m = (names, rtype = 'promise') => names.map((name) => ({ name, rtype }));
     window.Capacitor = {
       PluginHeaders: [
-        { name: 'UrciSpike', methods: m(['pickFolder', 'diag', 'folderStatus', 'writeFileSafe', 'list', 'freeSpace', 'nativeFix']) },
+        { name: 'UrciSpike', methods: m(['pickFolder', 'diag', 'folderStatus', 'writeFileSafe', 'list', 'freeSpace', 'nativeFix', 'downscale']) },
         { name: 'Camera', methods: m(['takePhoto']) },
         { name: 'Geolocation', methods: [...m(['requestPermissions', 'getCurrentPosition']), ...m(['watchPosition'], 'callback')] },
       ],

@@ -114,10 +114,15 @@ $('btnPhoto').onclick = async () => {
     step.fixAfterResumeMs = ms(tFix);
     if (fix) step.fixAcc = Math.round(fix.coords.accuracy);
 
-    // decode (must already be <= 2048 px: R7)
+    // camera ignores targetWidth for the file at uri: downscale natively first (R7)
+    const tDs = performance.now();
+    const ds = await withTimeout(Spike.downscale({ uri: photo.uri, maxEdge: 2048, quality: 92 }), 30000, 'downscale');
+    step.downscaleMs = ms(tDs);
+    step.cameraWidth = ds.srcWidth; step.cameraHeight = ds.srcHeight; step.inSampleSize = ds.inSampleSize; step.exifRotation = ds.rotation;
+
     const tDec = performance.now();
     const img = new Image();
-    img.src = C.convertFileSrc(photo.uri);
+    img.src = C.convertFileSrc('file://' + ds.path);
     await img.decode();
     step.decodeMs = ms(tDec);
     step.width = img.naturalWidth; step.height = img.naturalHeight;
