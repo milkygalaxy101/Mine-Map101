@@ -1030,6 +1030,145 @@ Not design-complete: Pass 5 (visual system) stays low until `/design-consultatio
 ### Unresolved Decisions
 - None. DS-1 was resolved by `/design-consultation` (DESIGN.md, 2026-11-02).
 
+## Eng Review (2026-11-02, /plan-eng-review)
+Target: docs/designs/urci-field-app.md (with CEO Review Amendments, Design Review Amendments) + DESIGN.md. Report file: this document.
+
+### Scope record
+- **Feature answers:** none proposed. HOLD SCOPE (CEO D3) and the owner's earlier keep decisions stand.
+- **Structure:** B, Smaller arrangement (eng D1).
+- **Accepted scope:**
+  - every approved feature and fix, unchanged;
+  - ~30 files;
+  - 4 screen modules (`inspect.js`, `history.js`, `files.js`, `settings.js`);
+  - core modules `urci-engine.js`, `curves.json`, `store.js`, `media.js` (stamp + photo), `export.js`, `log.js`;
+  - one content file per language, `content.id.json` / `content.en.json`, feeding labels, (i) popups and manual pages, generated at build time;
+  - the `UrciStorage` Kotlin plugin;
+  - the CI workflow;
+  - tests.
+- **Pending remedies:** none at scope time.
+- **Scope Challenge result:** scope accepted as-is (smaller arrangement preserves scope).
+
+### Decision ledger
+
+#### R1: edit-history representation for sync
+Finding: 1, CRITICAL, confidence 7/10, docs/designs/urci-field-app.md ("every record carries `history`, a list of `{deviceId, n}` edit stamps … Each save appends a stamp"), reviewer: primary.
+Plan baseline: append-only list of `{deviceId, n}` stamps (office-hours round-2 fix, carried by CEO SYNC-1 D15 "union of both histories").
+Runtime evidence: unknown (no code yet).
+Comparison grid:
+| Commitment | Current | A | B |
+|---|---|---|---|
+| R1 history representation | append-only stamp list | version vector `{deviceId: maxN}` | append-only stamp list |
+| Sync outcomes (fast-forward / keep / conflict / tombstone) | approved (D15, D10) | unchanged | unchanged |
+| Conflict resolution "union" | union of lists + new stamp | element-wise max of vectors + own counter +1 | unchanged |
+| Record size growth | +1 entry per save | +1 entry per new device only | +1 entry per save |
+Question D2:
+D2 — R1: Store sync edit history as a list of stamps, or as a compact version vector?
+Project/branch/task: eng review of URCI Field (claude/add-gstack-team-mode), sync rules in docs/designs/urci-field-app.md.
+ELI10: To decide whether an imported inspection is newer, older or in conflict, each record keeps an edit history. Today the plan appends one stamp per save, forever. A version vector keeps just one number per phone ('phone A has made 12 edits to this record, phone B 3'). It gives exactly the same newer/older/conflict answers, but stays tiny no matter how many times a record is edited.
+Stakes if we pick wrong: the list version makes records and import comparisons grow without limit; the vector needs care to implement correctly.
+Recommendation: A because it keeps every approved sync outcome identical while bounding record size, which matters for a data folder copied around for years.
+Completeness: A=10/10, B=8/10
+Pros / cons:
+A) Version vector (recommended)
+  ✅ Fixed size per record (one entry per phone), so imports stay fast after years of edits
+  ✅ Same fast-forward, keep, conflict and tombstone results as approved; easy to unit test
+  ❌ Comparison logic is slightly less obvious to read than a list (human ~2h / CC ~5min)
+B) Keep the append-only stamp list
+  ✅ Simplest to explain: a literal edit log per record
+  ✅ No change to the approved text
+  ❌ Grows by one entry every save, forever, and comparisons slow down as it grows
+Net: bounded size with identical behavior vs a literal but ever-growing log.
+Header: R1 History
+Options:
+A) Version vector (recommended)
+`{deviceId: maxN}` per record; dominates = fast-forward, dominated = keep, concurrent = conflict; resolution = element-wise max + own +1. Effort S, low risk, same tests as approved sync outcomes.
+B) Keep stamp list
+Append-only `{deviceId, n}` list as written. Effort S (no change), unbounded growth.
+
+State: approved
+Actual answer: A) Version vector (D2, 2026-11-02)
+Accepted scope: replace the append-only stamp list with a version vector `{deviceId: maxN}` per record (rounds too). Dominates = fast-forward, dominated = keep, concurrent = conflict, resolution = element-wise max + own counter +1. All approved sync outcomes and tests unchanged.
+History: baseline was the append-only list.
+
+#### R2: test frameworks
+Finding: 3, CRITICAL, confidence 9/10, repo has no package.json or test files (`git ls-files` shows only index.html, README.md, CLAUDE.md, DESIGN.md, docs/, .claude/); the plan requires engine, sync, import and device tests. Reviewer: primary.
+Plan baseline: the plan says `node --test` for the engine (T2) and "instrumented tests" for the plugin; no framework is chosen for UI.
+Runtime evidence: no framework installed.
+Comparison grid:
+| Commitment | Current | A | B |
+|---|---|---|---|
+| Engine/store/sync tests | `node --test` mentioned | Node built-in `node:test`, zero deps | Vitest (npm dev dependency) |
+| Kotlin plugin tests | "instrumented tests" | JUnit + Robolectric on JVM, plus a few instrumented tests on a CI emulator | same as A |
+| UI smoke tests | none | Playwright against `www/` in desktop Chromium, filesystem stubbed | same as A |
+| Device acceptance | manual checklist (T11) | unchanged | unchanged |
+Question D3:
+D3 — R2: Which test tools should URCI Field use?
+Project/branch/task: eng review of URCI Field (claude/add-gstack-team-mode); the repo has no test setup yet.
+ELI10: The plan needs automated tests for the URCI math, sync rules, import safety and the screens, but no testing tools are chosen. Option A uses Node's built-in test runner (nothing extra to install) for the math and data logic, JUnit/Robolectric for the Kotlin storage plugin, and Playwright (a browser robot) for screen smoke tests. Option B swaps Node's runner for Vitest, a popular npm package with nicer output and watch mode.
+Stakes if we pick wrong: an untested engine or sync rule can silently produce wrong URCIs or lose data.
+Recommendation: A because the built-in runner needs no dependencies, works offline in CI, and is enough for pure-function tests.
+Note: options differ in kind, not coverage — no completeness score.
+Pros / cons:
+A) node:test + JUnit/Robolectric + Playwright (recommended)
+  ✅ Zero extra npm dependencies for the core tests, so fewer things to break or update
+  ✅ The same layers cover engine, plugin and screens; CI runs all three on each push
+  ❌ Plainer output than Vitest, and no built-in watch UI (human ~1d setup / CC ~20min)
+B) Vitest + JUnit/Robolectric + Playwright
+  ✅ Friendlier output, a watch mode and coverage reports out of the box
+  ✅ Widely used, with lots of examples online
+  ❌ Adds an npm dev dependency tree to maintain for a small codebase
+Net: zero-dependency simplicity vs a nicer developer experience.
+Header: R2 Tests
+Options:
+A) node:test stack (recommended)
+node:test for engine/store/sync/import logic, JUnit+Robolectric for UrciStorage, Playwright UI smoke on www/. Effort M, low risk.
+B) Vitest stack
+Vitest for engine/store logic; same Kotlin and Playwright layers. Effort M, low risk, extra dependency.
+
+State: approved
+Actual answer: A) node:test stack (D3, 2026-11-02)
+Accepted scope: `node:test` (Node built-in) for engine/store/sync/import/content-parity tests, JUnit + Robolectric (plus a few CI-emulator instrumented tests) for UrciStorage, Playwright UI smoke tests on www/ with filesystem stubbed; device acceptance stays a manual checklist.
+History: baseline mentioned only `node --test` and "instrumented tests".
+
+#### R3: where PDF/xlsx generation runs
+Finding: 4, INFORMATIONAL, confidence 6/10, docs/designs/urci-field-app.md ("`export.js`: builds the PDF, xlsx and export bundle"), reviewer: primary.
+Plan baseline: export.js on the main WebView thread (unspecified).
+Runtime evidence: unknown; freeze duration [estimated], to be measured on a low-end device.
+Comparison grid:
+| Commitment | Current | A | B |
+|---|---|---|---|
+| R3 PDF/xlsx execution | main thread (implied) | Web Worker with progress messages | main thread |
+| Bundle zipping | native streaming (approved) | unchanged | unchanged |
+| Export progress/cancel UI | approved for backup (CEO S7) | applies to PDF/xlsx too | backup only |
+Question D4:
+D4 — R3: Generate PDF and Excel exports in a background worker?
+Project/branch/task: eng review of URCI Field (claude/add-gstack-team-mode), export.js performance.
+ELI10: Making a PDF with many photos, or an Excel file with a year of inspections, takes heavy work. If it runs on the app's main thread, the screen freezes for several seconds and Android may show 'App not responding'. A Web Worker does the same work in the background while the screen stays responsive, with a progress bar and cancel.
+Stakes if we pick wrong: freezes make inspectors think the app crashed, and they force-close it mid-export.
+Recommendation: A because a responsive screen during long exports avoids false 'crash' reports, and jsPDF and SheetJS both run in workers.
+Completeness: A=10/10, B=6/10
+Pros / cons:
+A) Web Worker for PDF/xlsx (recommended)
+  ✅ The screen stays responsive with a progress bar and cancel during long exports
+  ✅ Photo decoding happens off the main thread, so lower freeze risk on cheap phones
+  ❌ Message passing between worker and page adds some code (human ~4h / CC ~15min)
+B) Main thread, measure first
+  ✅ Simplest code; fine if real exports turn out to be quick
+  ✅ The decision can be revisited after device testing
+  ❌ Freezes ship to users if large exports are slow on low-end phones
+Net: guaranteed responsiveness vs simpler code and a measure-later bet.
+Header: R3 Export thread
+Options:
+A) Web Worker (recommended)
+PDF and xlsx built in a Web Worker with progress + cancel; same outputs. Effort S, low risk.
+B) Main thread
+Keep on main thread; measure during device tests. Effort S (none now), freeze risk.
+
+State: approved
+Actual answer: A) Web Worker (D4, 2026-11-02)
+Accepted scope: PDF and xlsx generation runs in a Web Worker (`export.worker.js`) with progress messages and cancel; outputs unchanged; bundle zipping stays native.
+History: baseline was main thread (implied).
+
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
