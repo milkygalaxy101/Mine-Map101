@@ -312,6 +312,7 @@
       const err = el('p', { class: 'err-text', role: 'alert' });
       const close = this.sheet(el('h2', { text: `${code} ${d.short} · ${t.sevName[sev]}` }),
         el('div', { class: 'sev-guide' }, el('span', { class: 'label', text: t.looksLike }), el('span', { text: d.sev[sev] })),
+        code === '85' ? this.potholeTable(sev) : null,
         el('label', { class: 'ask', for: 'qty', text: t.ask[d.unit] }),
         el('div', { class: 'qty-input' }, input, el('span', { class: 'unit', text: unit })), err,
         this.state.qty[key] !== undefined ? el('button', { class: 'btn-secondary btn-block', type: 'button', disabled: true, 'aria-describedby': 'photo-note' }, icon('photo_camera', ''), ' ', t.takePhoto) : null,
@@ -329,6 +330,23 @@
       };
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') commit(); });
       setTimeout(() => input.focus(), 50);
+    }
+
+    // TM 5-626 Table B-1 (metric): severity from maximum depth x average diameter. The cells for the
+    // severity being entered are marked, so the inspector can check a measured pothole at a glance.
+    potholeTable(sev) {
+      const t = this.t();
+      const pt = t.potholeTable;
+      const GRID = [['L', 'L', 'M', 'M'], ['L', 'M', 'H', 'H'], ['M', 'H', 'H', 'H']];
+      const table = el('table', { class: 'pothole-table' },
+        el('caption', { text: pt.title }),
+        el('thead', {},
+          el('tr', {}, el('th', { scope: 'col', rowspan: '2', class: 'corner', text: pt.depthHead }), el('th', { scope: 'colgroup', colspan: '4', text: pt.diaHead })),
+          el('tr', {}, ...pt.dias.map((x) => el('th', { scope: 'col', text: x })))),
+        el('tbody', {}, ...GRID.map((row, i) => el('tr', {},
+          el('th', { scope: 'row', text: pt.depths[i] }),
+          ...row.map((s) => el('td', { class: s === sev ? 'mark' : '', 'aria-label': t.sevName[s], 'aria-current': s === sev ? 'true' : null, text: t.sevShort[s] }))))));
+      return el('div', { class: 'pothole' }, table, el('p', { class: 'note', text: pt.legend }), el('p', { class: 'note', text: pt.big }), el('p', { class: 'note', text: pt.tools }));
     }
 
     // ---------- calc sheet (UJ-3, H2) ----------

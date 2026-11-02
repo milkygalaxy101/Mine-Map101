@@ -85,6 +85,18 @@ main { padding: 0 var(--md); max-width: 720px; margin: 0 auto; }
 .ask { display: block; margin-bottom: var(--xs); font: 600 18px/1.3 Barlow; }
 .result-meta .need { font: 500 14px/1.3 Barlow; color: var(--ink); }
 
+/* pothole size table (TM 5-626 Table B-1) */
+.pothole { margin: 0 0 var(--md); }
+.pothole-table { width: 100%; border-collapse: collapse; table-layout: fixed; font: 500 14px/1.25 Barlow; }
+.pothole-table caption { text-align: left; font: 600 16px/1.3 Barlow; margin-bottom: var(--xs); }
+.pothole-table th, .pothole-table td { border: 1px solid var(--rule); padding: 4px 2px; text-align: center; }
+.pothole-table th { font-weight: 500; color: var(--muted); }
+.pothole-table th.corner { width: 76px; font-size: 13px; overflow-wrap: break-word; }
+.pothole-table tbody th { text-align: left; padding-left: 4px; color: var(--ink); }
+.pothole-table td { font: 600 16px Barlow; color: var(--muted); }
+.pothole-table td.mark { background: var(--primary); color: var(--on-primary); }
+.pothole .note { margin: var(--xs) 0 0; font-size: 14px; }
+
 /* quantity grid */
 .grid { display: flex; flex-direction: column; }
 .grid-head, .grid-row { display: grid; grid-template-columns: minmax(var(--label), 1fr) repeat(3, var(--cell)); column-gap: var(--xs); align-items: center; }

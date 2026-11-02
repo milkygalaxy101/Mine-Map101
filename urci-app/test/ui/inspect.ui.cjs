@@ -85,6 +85,16 @@ async function run(browser, base, scale) {
     await page.fill('.sheet input', value);
     await page.click('.sheet .btn-primary');
   };
+  // pothole keypad shows TM Table B-1 sizes with the chosen severity marked (owner request)
+  {
+    const row = page.locator('.grid-row').filter({ has: page.locator('.code', { hasText: '85' }) });
+    await row.locator('button.cell').nth(1).click();
+    const marked = await page.locator('.sheet .pothole-table td.mark').allTextContents();
+    check(marked.length === 4 && marked.every((x) => x === 'S'), `${tag} pothole keypad (Sedang) marks the 4 Sedang cells of Table B-1, got ${JSON.stringify(marked)}`);
+    check((await page.textContent('.sheet .pothole')).includes('bagi 7'), `${tag} pothole keypad explains the > 1 m rule (area ÷ 7)`);
+    check(await page.evaluate(() => document.querySelector('.sheet').scrollWidth <= document.querySelector('.sheet').clientWidth), `${tag} pothole table fits the sheet width`);
+    await page.click('.sheet .btn-tertiary');
+  }
   await cell('81', 1, '30,5');
   check(await page.locator('.summary').count() === 1, `${tag} header collapses to the summary line after the first fill`);
   await cell('82', 2, '61');
