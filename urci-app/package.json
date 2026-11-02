@@ -1,0 +1,12 @@
+{
+  "name": "urci-field",
+  "version": "0.1.0",
+  "private": true,
+  "description": "URCI Field: offline unsurfaced road inspection (TM 5-626) for Android",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

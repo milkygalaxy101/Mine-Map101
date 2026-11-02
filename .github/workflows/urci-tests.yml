@@ -1,0 +1,20 @@
+name: urci-tests
+on:
+  push:
+    paths: ['urci-app/**', 'docs/designs/curves/**', '.github/workflows/urci-tests.yml']
+  pull_request:
+    paths: ['urci-app/**', 'docs/designs/curves/**']
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: urci-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - name: Curve anchors (reader-1 draft)
+        run: python3 ../docs/designs/curves/validate.py ../docs/designs/curves/curves.reader1.json
