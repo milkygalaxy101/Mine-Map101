@@ -1589,17 +1589,111 @@ None in this review.
 - Parallelization: 3 lanes, 2 parallel / 1 sequential-dependent
 - Lake Score: 9/10
 
+## Design Re-review Amendments (approved 2026-11-02, /plan-design-review re-run; supersede conflicting text above)
+- **Corrections** (covered by earlier decisions, no question):
+  - **M5:** every glyph in copy (⚠ ✔ ▼ ⏳ ✎ 📖 📷) becomes a Material Symbols icon beside plain text (SLOP-1, DESIGN.md "no emoji").
+  - **M8:** the round chip is read-only with no ✎ (P7-4). A closed round shows a lock icon, muted text and "Ditutup".
+  - **M4:** the cell value is 20 sp; the 48 dp cell sits in a 56 dp row.
+- **M2 (D3):** the whole 96 dp row-label area is the (i) target (small info glyph hint), with no separate icon. Prototype at 360 dp and font scale 1.3.
+- **M3 (D4):**
+  - Tapping a cell opens its keypad sheet.
+  - Once the cell has a value, the sheet shows a full-width "Ambil foto" button for that cell.
+  - The 14 dp corner badge is status only.
+  - Dust chips (P7-1): selecting a chip opens the same sheet with "Ambil foto".
+- **E1 (D5):**
+  - While stamps are pending, Save reads "Menyimpan… memproses N foto" with a spinner, and Back is blocked.
+  - At 10 s, the app saves anyway, shows the toast "Tersimpan · N foto masih diproses", and keeps the cell's "Foto belum diproses" chip.
+  - The photo attaches automatically when it's done (an edit save).
+- **M1 + H1 (D6):**
+  - The compact sticky result bar (~72 dp) holds the 32 sp number ("—" before the first entry), the band chip with TDV·q, and Save.
+  - The tabs hide while the keyboard is open, and the bar sits directly above the keyboard.
+  - The full stamp appears only in the calc sheet and the PDF.
+- **M7 (D7):** confirm dialog (primary + "Batal") and destructive dialog (red primary with an explicit verb); default focus on the safe choice. Applies to draft restore, discard, reopen, Hapus, Hapus foto and Tutup putaran.
+- **M6 (D8):** banners come in info (navy tint) and warning (amber top rule and icon) variants. Backup age, clock drift, conflicts and closed rounds are warnings.
+- **E2 (D9):**
+  - The closed-round check runs when the section is picked: lock chip, warning banner "Putaran ditutup" with "Buka kembali", grid disabled until reopened or another section is chosen.
+  - Save checks again; if an import closed the round meanwhile, a confirm dialog asks "Buka kembali dan simpan?" and the draft is kept.
+  - "Ubah" on a record in a closed round shows the same banner.
+- **E3 (D10):**
+  - A drift of minutes shows a persistent warning banner under the header.
+  - A drift that changes the date or month shows a blocking confirm dialog before the first photo or Save: "Tanggal HP salah (HP: …, GPS: …)", with "Buka Pengaturan" or "Lanjutkan saja" (continuing is logged).
+- **E4 (D11):** when the WebView is too old, an ES5-safe full-screen page shows the version found and required, 3 steps to update Android System WebView, a "data is safe" note and Tutup.
+- **E5 (D12):** the header shows GPS status in mono ("GPS ±4 m" / "Mencari GPS…"). When location is off or denied, an amber chip "GPS mati · Aktifkan" opens the relevant setting. The 10 s rule is unchanged.
+- **H2 (D13):** on the phone, each calc row takes two lines: "83 Keriting · Sedang", then mono "83,7 m² → 50,0 % → 29" with a figure/flag chip. The PDF keeps the full block 9 table.
+- **E6 (D14):**
+  - The import result lists Diimpor, Sudah ada, Konflik baru (a link to the list) and Dilewati (with reasons), with a "Tidak ada data baru" headline when nothing is new.
+  - Progress shows "Memeriksa X dari Y" (cancellable), then "Menyimpan…" (not cancellable, which the screen states), plus "Bagian n dari m". "Selesai" returns to File.
+- **E7 (D15):**
+  - camera denied: a dialog with "Buka Pengaturan";
+  - folder lost during Save or in File: the draft is kept and the folder re-select opens, then Save continues;
+  - storage full during Save: the draft is kept, with a dialog naming the space needed;
+  - empty conflict list: "Tidak ada konflik";
+  - "Ubah" on a closed round: the D9 banner.
+- **M9 + H3 (D16):** DESIGN.md gains Toast, Progress and Chart specs (band tints, ink line, solid/hollow labeled points, labeled outliers).
+- **H4 (D17):** the File tab has two sections: "Data" (backup, import, share, diagnostics, with the backup banner) and "Ekspor sebelumnya" (newest first, Buka/Bagikan).
+
+### Implementation Tasks (design re-review)
+- [ ] **DR-T1 (P1, human: ~1d / CC: ~20min)**: Inspect bottom bar + keypad sheet with Ambil foto + label-as-help + Save-wait states
+  - Surfaced by: D3, D4, D5, D6
+  - Files: www/inspect.js, www/styles.css
+  - Verify: Playwright at 360 dp and font scale 1.3: no horizontal scroll, bar and Save above the keyboard, "—" before entry, 10 s save toast
+- [ ] **DR-T2 (P1, human: ~1d / CC: ~20min)**: dialogs, banners, toast, progress, chips per DESIGN.md
+  - Surfaced by: D7, D8, D16, M8
+  - Files: www/ui-components.js (inside the screen modules per eng D1)
+  - Verify: the destructive dialog defaults focus to Batal; warning banners use the amber rule
+- [ ] **DR-T3 (P1, human: ~6h / CC: ~15min)**: closed-round flow, clock-drift escalation, GPS status chip, error states
+  - Surfaced by: D9, D10, D12, D15
+  - Files: www/inspect.js, www/files.js
+  - Verify: a closed round disables the grid; a month-changing drift shows the blocking dialog; location off shows the chip
+- [ ] **DR-T4 (P2, human: ~4h / CC: ~10min)**: WebView-too-old ES5 page; import result + staged progress; File sections; phone calc rows; chart styling
+  - Surfaced by: D11, D13, D14, D16, D17
+  - Files: www/legacy.html, www/files.js, www/history.js
+  - Verify: Chromium 74 user agent shows the page; import result shows 4 rows; chart passes a no-color check
+
+## Design Re-review Completion Summary
+```
+  +====================================================================+
+  |         DESIGN PLAN REVIEW — COMPLETION SUMMARY (re-run)           |
+  +====================================================================+
+  | System Audit         | DESIGN.md present (spec format); eng states |
+  |                      | added since last review                     |
+  | Step 0               | 6/10 initial (re-rate); focused on changes  |
+  | Pass 1  (Info Arch)  | 7/10 → 9/10 after fixes                     |
+  | Pass 2  (States)     | 6/10 → 9/10 after fixes                     |
+  | Pass 3  (Journey)    | 7/10 → 7/10 (save-and-next declined, D12    |
+  |                      | of first run; honored)                      |
+  | Pass 4  (AI Slop)    | 9/10 → 9/10 (glyphs → icons, correction)    |
+  | Pass 5  (Design Sys) | 7/10 → 9/10 after fixes                     |
+  | Pass 6  (Responsive) | 6/10 → 9/10 after fixes                     |
+  | Pass 7  (Decisions)  | 15 resolved, 0 deferred                     |
+  +--------------------------------------------------------------------+
+  | NOT in scope         | written (save-and-next stays declined)      |
+  | What already exists  | DESIGN.md, approved wireframe (stale for    |
+  |                      | icons/bar)                                  |
+  | TODOS.md updates     | 0 items proposed                            |
+  | Approved Mockups     | 0 generated (no image API key)              |
+  | Decisions made       | 15 added to plan                            |
+  | Decisions deferred   | 0                                           |
+  | Overall design score | 6/10 → 7/10 (lowest pass: Journey, capped   |
+  |                      | by the owner's declined save-and-next)      |
+  +====================================================================+
+```
+Not design-complete only because Pass 3 stays at 7: the owner declined "Save & next unit" (first design review, D12), and that decision is honored. All other passes are at 9.
+
+### Unresolved Decisions
+- None.
+
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | mode: HOLD_SCOPE, 0 critical gaps |
-| Outside Review | Claude Plan subagents (native fallback; Codex not installed) | Independent 2nd opinion | 2 | unavailable (external) / completed (native) | CEO: 14 findings, 14 resolved; Eng: 20 findings, 20 resolved (10 decisions, 10 corrections) |
+| Outside Review | Claude subagents (native fallback; Codex not installed) | Independent 2nd opinion | 4 | unavailable (external) / completed (native) | CEO 14, Eng 20, Design 22 + 20 findings, all resolved |
 | Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | ISSUES OPEN (all mapped to tasks) | 5 issues, 0 critical gaps |
-| Design Review | `/plan-design-review` | UI/UX gaps | 1 | ISSUES OPEN (logged before DS-1 resolved) | score: 2/10 → 3/10, 18 decisions |
+| Design Review | `/plan-design-review` | UI/UX gaps | 2 | ISSUES OPEN | score: 6/10 → 7/10, 15 decisions |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
-- **OUTSIDE COVERAGE:** codex unavailable (not installed) for the CEO, design and eng phases. Native Claude subagents completed all three (in-harness, not external coverage).
-- **VERDICT:** CEO CLEARED. Eng review complete with 0 unresolved decisions and 0 critical gaps; its status is ISSUES OPEN because 5 findings became implementation tasks. The design review predates DESIGN.md (re-run /plan-design-review to refresh Pass 5).
+- **OUTSIDE COVERAGE:** codex unavailable (not installed) in every phase. Native Claude subagents completed all of them (in-harness, not external coverage).
+- **VERDICT:** CEO CLEARED. Eng and Design have no unresolved decisions; they are ISSUES OPEN only because findings became tasks, and Design's journey score is capped by the owner's declined save-and-next.
 
 NO UNRESOLVED DECISIONS

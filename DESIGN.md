@@ -151,16 +151,38 @@ Small, document-like radii: 4 px for inputs, cells and chips, 6 px for buttons a
 ## Components
 
 - **Buttons:** primary is solid navy; secondary is white with a navy 2 px border; tertiary is underlined navy text. Pressed state is `primary-pressed`. Focus shows a 3 px `focus-ring` outline. Disabled is 40% opacity and is never the only signal; the label explains why.
-- **Grid cell:** 72 × 48 dp, value centered (Barlow 500, 17 sp). A filled cell gets a navy 2 px border and `primary-tint` fill. **The photo marker (camera icon 14 dp plus count) sits in the cell's top-right corner and never shares a line with the value.** Processing shows a spinner icon in the same corner; failure shows a warning icon.
+- **Grid cell:** 72 × 48 dp, centered in a 56 dp row; value centered (Barlow 500, 20 sp). A filled cell gets a navy 2 px border and `primary-tint` fill. **The photo marker (camera icon 14 dp plus count) sits in the cell's top-right corner, never shares a line with the value, and is status only (not a tap target).** Tapping a cell opens its keypad sheet. Once the cell has a value, the sheet shows a full-width 48 dp "Ambil foto" button for exactly that cell.
+- **Row label:** the whole 96 dp label area is the tap target for the (i) help popup, marked by a small info glyph. There is no separate (i) icon. Processing shows a spinner icon in the same corner; failure shows a warning icon.
 - **Dust (84):** three single-choice chips (R/S/T); selected is solid navy.
-- **Result stamp:** 2 px ink border. The left side has block "9 · URCI · TDV · q" and "Ketuk untuk perhitungan". The right side has the 56 sp number behind a 2 px divider. Along the bottom runs a full-width band strip with the label and range.
+- **Result bar (Inspect, sticky):** about 72 dp. Left: the 32 sp URCI number ("—" before the first entry). Middle: band chip plus "TDV · q". Right: the Save button. It sits directly above the keyboard, and the tabs hide while the keyboard is open. While stamps are pending, Save reads "Menyimpan… memproses N foto".
+- **Result stamp (calc sheet and PDF only):** 2 px ink border. The left side has block "9 · URCI · TDV · q" and "Ketuk untuk perhitungan". The right side has the 56 sp number behind a 2 px divider. Along the bottom runs a full-width band strip with the label and range.
 - **Band chip:** uppercase label on the band fill, 4 px radius.
 - **Messages:**
   - field error: red text under the field;
   - success: 3 s toast;
-  - blocking: dialog with one primary button;
-  - standing condition: `primary-tint` banner;
+  - blocking: dialog;
+  - standing condition: banner;
   - per-item: icon chip on the row.
+- **Dialogs:**
+  - **Notice:** one primary button.
+  - **Confirm:** primary button plus a tertiary "Batal".
+  - **Destructive:** the primary button is `error` red with an explicit verb ("Hapus foto", "Buang draf"), never "OK".
+  - Default focus is always the safe choice.
+- **Banners:**
+  - **Info:** `primary-tint` background, navy icon.
+  - **Warning:** `paper` background, a 3 dp `warning` top rule and an amber icon. Used for backup age, clock drift, conflicts and closed rounds.
+- **Toast:** `ink` background, white 16 sp text, 4 px radius, 3 s. It appears just above the result bar or tabs and never covers Save.
+- **Progress:** a dialog with a 4 dp navy bar on a `rule` track, "X dari Y" (or "Bagian n dari m") and "Batal" only when cancellable. A non-cancellable stage says so.
+- **Chart (trend):**
+  - band zones as tints of the band colors at 12% opacity behind the data;
+  - an ink line, 2 px;
+  - solid 8 dp points for complete rounds, hollow points for incomplete ones, each labeled "n dari N";
+  - outlier units marked with an `error` triangle plus a text label;
+  - axis labels in Barlow 14 sp `text-muted`.
+- **Chips:**
+  - the round chip is read-only;
+  - a closed round shows a lock icon, `text-muted` text and "Ditutup";
+  - the GPS status uses IBM Plex Mono ("GPS ±4 m" / "Mencari GPS…"), with an amber "GPS mati · Aktifkan" chip when location is off or denied.
 - **Icons:** bundled Material Symbols subset, 24 dp, monochrome. Status colors only for warning and error. Every icon has a TalkBack label.
 
 ## Do's and Don'ts
@@ -187,4 +209,5 @@ Small, document-like radii: 4 px for inputs, cells and chips, 6 px for buttons a
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-11-02 | Initial design system created | /design-consultation from the URCI Field design doc. Memorable thing: "official and trustworthy". Resolves DS-1. |
+| 2026-11-02 | Design re-review: compact result bar, keypad-sheet photo button, label-as-help, confirm/destructive dialogs, warning banners, toast/progress/chart specs, chips | /plan-design-review D3–D17 |
 | 2026-11-02 | Grid photo marker moved to the cell corner | Owner asked that cramped cell text never occur; 72 dp cells and a corner badge keep the value alone on its line. |
