@@ -25,8 +25,13 @@ jobs:
           java-version: 21
       - name: Install web deps
         run: npm ci
-      - name: Vendor jsPDF
+      - name: Vendor jsPDF and @capacitor/core
         run: node scripts/vendor.mjs
+      - name: Bridge smoke test (real @capacitor/core against a native-bridge fake)
+        run: |
+          npm i --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+          node test/bridge-smoke.cjs
       - name: Sync Capacitor
         run: npx cap sync android
       - name: Build debug APK
