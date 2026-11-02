@@ -49,8 +49,8 @@ FS144 TDV 133.0 q 4 URCI 22.82 (23) TM 25  OK (edge of ±2)
    opposite directions, so TDV barely moves.
 4. **C-8, q=6 and q=7** share one line from TDV 41.5 until they split near TDV 143. The JSON
    repeats the shared points in both curves.
-5. **The C-8 legend reads "equal to or greater than 5".** The app uses > 5.0 (§3-4b(3)). A
-   deduct of exactly 5.0 changes q between the two readings, so this needs a decision before
-   release.
+5. **The C-8 legend reads "equal to or greater than 5".** **Decided by owner (2026-11-02): option A.**
+   q counts deducts greater than 5.0 (the TM text, §3-4b(3)), judged on the unrounded value, as the engine
+   already does.
 6. **Steep starts.** 85-H below 1.5 % and every curve below about 2 % density are interpolated
    from `[0, 0]`. The tracer cannot separate the strokes there.
