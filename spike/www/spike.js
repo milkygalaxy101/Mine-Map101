@@ -17,6 +17,18 @@ let watchId = null;
 const $ = (id) => document.getElementById(id);
 const logEl = $('log');
 
+const statusEl = $('status');
+function status(msg, bad) {
+  statusEl.textContent = msg;
+  statusEl.className = bad ? 'bad' : '';
+}
+// Any script error or rejected promise shows at the top, not only in the log at the bottom.
+window.addEventListener('error', (e) => { status('ERROR skrip: ' + e.message, true); log('ERROR skrip: ' + e.message, 'bad'); });
+window.addEventListener('unhandledrejection', (e) => {
+  const m = (e.reason && (e.reason.code || e.reason.message)) || String(e.reason);
+  status('ERROR: ' + m, true); log('ERROR: ' + m, 'bad');
+});
+
 function log(msg, cls) {
   const line = document.createElement('div');
   if (cls) line.className = cls;
@@ -26,7 +38,9 @@ function log(msg, cls) {
 }
 function record(step, data, ok = true) {
   results.steps.push({ step, ok, at: new Date().toISOString(), ...data });
-  log(`${ok ? 'OK ' : 'GAGAL '}${step}: ${JSON.stringify(data)}`, ok ? 'ok' : 'bad');
+  const line = `${ok ? 'OK ' : 'GAGAL '}${step}: ${JSON.stringify(data)}`;
+  log(line, ok ? 'ok' : 'bad');
+  status(line, !ok);
 }
 function ms(t0) { return Math.round(performance.now() - t0); }
 function enable(...ids) { ids.forEach((id) => { $(id).disabled = false; }); }
@@ -40,12 +54,24 @@ async function blobToBase64(blob) {
 
 // ---------- 1. folder ----------
 $('btnFolder').onclick = async () => {
+  status('Membuka pemilih folder…');
+  const t0 = performance.now();
+  // If the picker never appears, say so instead of doing nothing.
+  let pickerShown = false;
+  const onHide = () => { if (document.hidden) { pickerShown = true; clearTimeout(timer); } };
+  document.addEventListener('visibilitychange', onHide);
+  const timer = setTimeout(() => status('Pemilih folder belum muncul setelah 20 dtk. Kirim tangkapan layar ini.', true), 20000);
   try {
-    const t0 = performance.now();
     const r = await Spike.pickFolder();
-    record('folder', { ms: ms(t0), uri: r.uri });
+    clearTimeout(timer);
+    document.removeEventListener('visibilitychange', onHide);
+    record('folder', { ms: ms(t0), uri: r.uri, pickerShown });
     enable('btnPhoto', 'btnSaveJson', 'btnList', 'btnExport');
-  } catch (e) { record('folder', { error: e.code || e.message }, false); }
+  } catch (e) {
+    clearTimeout(timer);
+    document.removeEventListener('visibilitychange', onHide);
+    record('folder', { pickerShown, error: e.code || e.message || String(e), message: e.message }, false);
+  }
 };
 
 // ---------- GPS watch (warm-up) ----------
@@ -207,4 +233,15 @@ $('btnExport').onclick = async () => {
   } catch (e) { log('Gagal simpan hasil: ' + (e.code || e.message), 'bad'); }
 };
 
-log('Siap. WebView: ' + (navigator.userAgent.match(/Chrome\/([\d.]+)/) || [, '?'])[1]);
+(async () => {
+  const wv = (navigator.userAgent.match(/Chrome\/([\d.]+)/) || [, '?'])[1];
+  const native = !!(C && C.isNativePlatform && C.isNativePlatform());
+  const hasPlugin = !!(C && C.isPluginAvailable && C.isPluginAvailable('UrciSpike'));
+  let d = {};
+  try { d = await Spike.diag(); } catch (e) { d = { diagError: e.code || e.message }; }
+  results.diag = { webview: wv, native, hasPlugin, ...d };
+  const msg = `Siap. Android ${d.release || '?'} (SDK ${d.sdk || '?'}) ${d.model || ''}\nWebView ${wv} · plugin ${hasPlugin ? 'OK' : 'TIDAK ADA'} · pemilih folder ${d.hasFolderPicker === false ? 'TIDAK ADA' : d.hasFolderPicker ? 'OK' : '?'}`;
+  const bad = !native || !hasPlugin || d.hasFolderPicker === false || d.diagError;
+  status(msg + (d.diagError ? `\ndiag: ${d.diagError}` : ''), bad);
+  log(msg, bad ? 'bad' : 'ok');
+})();

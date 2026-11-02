@@ -92,11 +92,33 @@ public class UrciSpikePlugin extends Plugin {
 
     @PluginMethod
     public void pickFolder(PluginCall call) {
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
-                | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-        startActivityForResult(call, intent, "onFolderPicked");
+        // No grant flags on the request: they belong on result intents, and some OEM pickers
+        // refuse a request that carries them. Persistable access is taken in onFolderPicked.
+        final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        if (intent.resolveActivity(getContext().getPackageManager()) == null) {
+            call.reject("No folder picker on this phone (DocumentsUI / Files app disabled?)", "NO_PICKER");
+            return;
+        }
+        // Plugin methods run on a background thread; launch the picker from the UI thread.
+        getActivity().runOnUiThread(() -> {
+            try {
+                startActivityForResult(call, intent, "onFolderPicked");
+            } catch (Exception e) {
+                call.reject("Picker failed to open: " + e, "PICKER_ERROR");
+            }
+        });
+    }
+
+    @PluginMethod
+    public void diag(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("sdk", android.os.Build.VERSION.SDK_INT);
+        ret.put("release", android.os.Build.VERSION.RELEASE);
+        ret.put("model", android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL);
+        Intent tree = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        ret.put("hasFolderPicker", tree.resolveActivity(getContext().getPackageManager()) != null);
+        ret.put("savedFolder", prefs().getString(KEY_TREE, null));
+        call.resolve(ret);
     }
 
     @ActivityCallback

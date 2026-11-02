@@ -35,6 +35,13 @@
         </provider>
     </application>
 
+    <!-- Package visibility (Android 11+): lets resolveActivity() see the folder picker -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.OPEN_DOCUMENT_TREE" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />

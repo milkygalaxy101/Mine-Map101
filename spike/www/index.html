@@ -27,11 +27,16 @@
          padding:8px; white-space:pre-wrap; word-break:break-word; max-height:40vh; overflow:auto; }
   .ok { color:var(--success); } .bad { color:var(--error); } .warn { color:var(--warning); }
   canvas { display:none; }
+  #status { position:sticky; top:0; z-index:2; font:400 14px/1.4 'IBM Plex Mono', monospace; background:var(--tint);
+            border:1px solid var(--rule); border-left:4px solid var(--primary); border-radius:6px; padding:8px; margin-bottom:8px;
+            white-space:pre-wrap; word-break:break-word; }
+  #status.bad { border-left-color:var(--error); color:var(--error); }
 </style>
 </head>
 <body>
   <h1>URCI Spike</h1>
   <p class="sub">Uji perangkat minggu 1 (eng R13). Jalankan langkah 1–6 berurutan, lalu ekspor hasil.</p>
+  <div id="status" role="status" aria-live="polite">Memuat…</div>
 
   <div class="step"><h2><em>1</em>FOLDER DATA (SAF)</h2>
     <button id="btnFolder">Pilih folder data</button></div>
