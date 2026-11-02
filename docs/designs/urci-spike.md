@@ -69,6 +69,11 @@ the memory risk R7 was meant to remove, and stamping alone took up to 4.3 s on t
   fonts when the Inspect screen opens, alongside the GPS warm-up.
 - Safe replace, GPS and listing re-ran and pass again.
 
+- **Squeezed photos in the PDF (owner report after run 2):** `pdf.worker.js` placed every photo in a fixed
+  180 × 135 mm (4:3 landscape) box, so portrait photos and their stamps were squashed. Fixed by fitting each
+  image inside the page area using its real pixel size (`fitBox`), checked on a rendered page. **Rule for
+  `export.js`:** never give `addImage` a fixed width and height; always fit by the image's own aspect ratio.
+
 **Gate result:** every R13 stop rule passes with native downscale. The production `UrciStorage` gets
 `downscale(uri, maxEdge)` (camera and gallery). `stamp.js` works only on downscaled images. The low-end
 device matrix (E-T8) still applies before release.
