@@ -1,0 +1,192 @@
+{
+  "device": "Mozilla/5.0 (Linux; Android 16; RMX3951 Build/BP2A.250605.015; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/156.0.8078.47 Mobile Safari/537.36",
+  "startedAt": "2026-11-02T13:14:29.678Z",
+  "steps": [
+    {
+      "step": "folder",
+      "ok": true,
+      "at": "2026-11-02T13:14:38.391Z",
+      "ms": 4886,
+      "uri": "content://com.android.externalstorage.documents/tree/primary%3ADocuments%2Furci",
+      "pickerShown": true
+    },
+    {
+      "step": "photo",
+      "ok": false,
+      "at": "2026-11-02T13:14:40.005Z",
+      "fixAtLaunch": null,
+      "error": "OS-PLUG-CAMR-0003"
+    },
+    {
+      "step": "photo",
+      "ok": true,
+      "at": "2026-11-02T13:15:00.485Z",
+      "fixAtLaunch": {
+        "acc": 11.458,
+        "ageMs": 1520
+      },
+      "cameraMs": 9670,
+      "fixAfterResumeMs": 126,
+      "fixAcc": 11,
+      "downscaleMs": 232,
+      "cameraWidth": 3072,
+      "cameraHeight": 4080,
+      "inSampleSize": 2,
+      "exifRotation": 0,
+      "decodeMs": 61,
+      "width": 1536,
+      "height": 2040,
+      "resizeHonored": true,
+      "stampMs": 3101,
+      "jpegBytes": 548521,
+      "base64Ms": 39,
+      "write": {
+        "bytes": 548521,
+        "decodeMs": 2.440077,
+        "totalMs": 794.489538,
+        "createdTempName": "photo-1.jpg.new",
+        "finalName": "photo-1.jpg",
+        "renamedOld": true,
+        "renamedNew": true
+      },
+      "urlHandlerDisplayMs": 162
+    },
+    {
+      "step": "photo",
+      "ok": true,
+      "at": "2026-11-02T13:15:06.881Z",
+      "fixAtLaunch": {
+        "acc": 11.199,
+        "ageMs": 1594
+      },
+      "cameraMs": 5247,
+      "fixAfterResumeMs": 117,
+      "fixAcc": 11,
+      "downscaleMs": 258,
+      "cameraWidth": 3072,
+      "cameraHeight": 4080,
+      "inSampleSize": 2,
+      "exifRotation": 0,
+      "decodeMs": 34,
+      "width": 1536,
+      "height": 2040,
+      "resizeHonored": true,
+      "stampMs": 1547,
+      "jpegBytes": 571095,
+      "base64Ms": 20,
+      "write": {
+        "bytes": 571095,
+        "decodeMs": 2.046692,
+        "totalMs": 779.984615,
+        "createdTempName": "photo-2.jpg.new",
+        "finalName": "photo-2.jpg",
+        "renamedOld": true,
+        "renamedNew": true
+      },
+      "urlHandlerDisplayMs": 149
+    },
+    {
+      "step": "photo",
+      "ok": true,
+      "at": "2026-11-02T13:15:15.841Z",
+      "fixAtLaunch": {
+        "acc": 19.05,
+        "ageMs": 1682
+      },
+      "cameraMs": 5523,
+      "fixAfterResumeMs": 116,
+      "fixAcc": 13,
+      "downscaleMs": 307,
+      "cameraWidth": 3072,
+      "cameraHeight": 4080,
+      "inSampleSize": 2,
+      "exifRotation": 0,
+      "decodeMs": 42,
+      "width": 1536,
+      "height": 2040,
+      "resizeHonored": true,
+      "stampMs": 812,
+      "jpegBytes": 612838,
+      "base64Ms": 14,
+      "write": {
+        "bytes": 612838,
+        "decodeMs": 3.115692,
+        "totalMs": 696.276846,
+        "createdTempName": "photo-3.jpg.new",
+        "finalName": "photo-3.jpg",
+        "renamedOld": true,
+        "renamedNew": true
+      },
+      "urlHandlerDisplayMs": 204
+    },
+    {
+      "step": "safeReplace",
+      "ok": true,
+      "at": "2026-11-02T13:15:19.006Z",
+      "runs": [
+        {
+          "bytes": 4080,
+          "decodeMs": 0.028692,
+          "totalMs": 630.859461,
+          "createdTempName": "inspection.json.new",
+          "finalName": "inspection.json",
+          "renamedOld": true,
+          "renamedNew": true
+        },
+        {
+          "bytes": 4080,
+          "decodeMs": 0.026077,
+          "totalMs": 765.185231,
+          "createdTempName": "inspection.json.new",
+          "finalName": "inspection.json",
+          "renamedOld": true,
+          "renamedNew": true
+        },
+        {
+          "bytes": 4080,
+          "decodeMs": 0.022462,
+          "totalMs": 569.599308,
+          "createdTempName": "inspection.json.new",
+          "finalName": "inspection.json",
+          "renamedOld": true,
+          "renamedNew": true
+        }
+      ],
+      "finalNameStable": true
+    },
+    {
+      "step": "gpsFused",
+      "ok": true,
+      "at": "2026-11-02T13:15:23.792Z",
+      "fixMs": 598,
+      "acc": 8
+    },
+    {
+      "step": "gpsNative",
+      "ok": true,
+      "at": "2026-11-02T13:15:26.795Z",
+      "fixMs": 1031,
+      "acc": 5,
+      "clockDriftSec": 0,
+      "driftOver5min": false
+    },
+    {
+      "step": "listAndSpace",
+      "ok": true,
+      "at": "2026-11-02T13:15:29.515Z",
+      "entries": 6,
+      "listMs": 80,
+      "freeMB": 32574
+    }
+  ],
+  "diag": {
+    "webview": "156.0.8078.47",
+    "native": true,
+    "hasPlugin": true,
+    "sdk": 36,
+    "release": "16",
+    "model": "realme RMX3951",
+    "hasFolderPicker": true
+  },
+  "finishedAt": "2026-11-02T13:15:35.388Z"
+}

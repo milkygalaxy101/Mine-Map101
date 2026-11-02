@@ -49,6 +49,26 @@ the memory risk R7 was meant to remove, and stamping alone took up to 4.3 s on t
 - **Coverage gap:** this is a fast, recent phone. The design's device matrix (Android 9/10, 11, 13, 14 and a
   phone without Play Services) is still needed, above all for stamping and PDF memory on a 2–3 GB phone.
 
-## Run 2: pending
-Confirms `downscale`: expect `resizeHonored: true`, `width`/`height` ≤ 2048, `inSampleSize: 2`, stamp well
-under 1 s and JPEG under about 1 MB.
+## Run 2 (2026-11-02): downscale confirmed. Spike gate passed.
+
+**Raw file:** `docs/designs/spike-results/2026-11-02-realme-RMX3951-android16-run2.json` (same phone).
+
+| Measure | Run 1 (camera file) | Run 2 (native `downscale`) |
+|---|---|---|
+| Image stamped | 3072 × 4080 | **1536 × 2040** (`inSampleSize` 2, EXIF rotation 0) |
+| `resizeHonored` | false | **true** (3/3) |
+| Downscale | — | 232–307 ms |
+| Decode in WebView | 216–229 ms | 34–61 ms |
+| Stamp + JPEG encode | 1.4–4.3 s | 3.1 s first, then 1.5 s, 0.8 s |
+| Stamped JPEG | 2.0–2.6 MB | **0.55–0.61 MB** |
+| Write via SAF | 0.33–0.61 s | 0.70–0.79 s |
+
+- **`OS-PLUG-CAMR-0003` again on the first photo after a fresh install.** This confirms it is the camera
+  permission prompt. The app requests camera permission up front and maps this code to an ID/EN message.
+- **The first stamp is the slowest (3.1 s):** a cold canvas and fonts. The build warms the stamp canvas and
+  fonts when the Inspect screen opens, alongside the GPS warm-up.
+- Safe replace, GPS and listing re-ran and pass again.
+
+**Gate result:** every R13 stop rule passes with native downscale. The production `UrciStorage` gets
+`downscale(uri, maxEdge)` (camera and gallery). `stamp.js` works only on downscaled images. The low-end
+device matrix (E-T8) still applies before release.
