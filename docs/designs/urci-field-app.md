@@ -863,17 +863,185 @@ _No new tasks from Section 5 beyond the T3/T4 design notes._
 
 PLAN_REALITY: phase=ceo rows=7/7 missing=none unverified=5 verdict=complete
 
+## Design Review Amendments (approved 2026-11-02, /plan-design-review)
+These amendments are approved and supersede conflicting screen descriptions above (including the wireframe where they differ).
+
+**Information architecture**
+- **IA-1 (D4):** Riwayat opens on a **Sections list** sorted worst-first. Each row shows section name, latest URCI, rating chip (text + color), change since last round (e.g. "−12 ▼") and coverage "n dari N unit". Tapping a row opens the section trend.
+- **IA-2 (D5):** Inspect has a **sticky result bar** (~72 dp, always above the keyboard) showing URCI · rating · TDV · q. After the first fill, the header collapses to one summary line, "I-HR01 / S03 / SU2 · 167 m² · Putaran Nov 2026 ✎", that expands on tap.
+- **IA-3 (D6):** the section trend screen order is:
+  1. headline "Sekarang 36 · Buruk (dari 78, −42)";
+  2. the chart;
+  3. flags (outlier, conflict, incomplete);
+  4. the rounds table;
+  5. actions (graph export).
+
+  The backup reminder is a slim banner on File and Settings, shown only when the last backup is more than 7 days old.
+- **IA-4 (D7):** the **File** tab is the data hub: Backup penuh, Impor bundel, Bagikan pilihan, the list of past exports with Open/Share, and Ekspor diagnostik. History keeps only graph export; Inspect keeps only "PDF inspeksi ini".
+
+**States**
+- **ST-1 (D8): first run.**
+  - A welcome screen shows the app name, "Data inspeksi disimpan di folder HP Anda", and the button "Pilih folder data" (Documents/URCI suggested).
+  - Outcomes: existing data → "Ditemukan N inspeksi · Lanjutkan"; empty folder → "Folder baru siap"; cancel → reason + "Coba lagi".
+  - Then a skippable, one-time 3-step tip (Isi → Foto → Simpan).
+- **ST-2 (D9): where messages appear.**
+  - Field problems: red text under the field.
+  - Finished action: a 3 s toast at the bottom.
+  - Blocking or data-losing problems: a dialog with one clear button.
+  - Standing conditions (old backup, open conflicts): a slim banner.
+  - Per-item warnings (Foto diubah, File rusak, Foto belum diproses, di luar grafik): an icon chip on that row or cell.
+  - Every empty state gets one line of explanation plus one action, e.g. Riwayat → "Belum ada inspeksi" + "Mulai inspeksi"; a single round → one point plus "Butuh 2 putaran untuk tren"; File with no exports → "Belum ada ekspor".
+- **ST-3 (D10): conflict and import screens.**
+  - **Conflict:** the "Konflik (n)" banner opens a list. Each item shows only the differing fields in two columns, Versi saya | Versi masuk, and two equal-size buttons, "Pakai versi saya" / "Pakai versi masuk", with no default selected.
+  - **Import result:** a full-screen summary, "✔ X diimpor · ⚠ Y dilewati", listing each skipped item with its reason, a "Lihat detail di diagnostik" link, and "Selesai".
+- **ST-4 (D11): photo processing.** After capture, the app returns to the grid immediately. The camera control on that cell shows processing ⏳ → count → ⚠ (failed). Opening it shows "Memproses… mencari GPS (n s)" over the raw image until the stamp is ready. (Icons per SLOP-1.)
+
+**User journey**
+- **UJ-1 (D12): declined.** There is a single Save, which returns to an empty form.
+- **UJ-2 (D13): branch and section pickers.** Both fields pick from earlier values (most recent first), with "+ Baru" to add one. New names are trimmed and uppercased, and a near-duplicate prompts "Maksud Anda I-HR01?". The list is stored in settings.json.
+- **UJ-3 (D14): calculation panel.** Tapping the result bar opens a block-9 table. Each entered distress row shows code + short name, severity, quantity + unit, density %, deduct, TM figure (e.g. "Gbr. C-3") and the "di luar grafik" flag. Below that: TDV, q ("dihitung jika > 5,0"), URCI, rating, and the band table used. The PDF prints the same table.
+
+**AI slop**
+- **SLOP-1 (D15): icons.** Emoji are replaced by a bundled Material Symbols subset (~20 icons, offline): monochrome, 24 dp inside 48 dp targets, colored only for status (warning amber, error red), each with a TalkBack label.
+
+**Design system**
+- **DS-1 (D16): deferred.** The owner chose to run `/design-consultation` first, to define the visual system (colors, type, spacing, rating-band colors). Until then, only UI-1's rules apply (48 dp, high contrast, 16 sp, numeric keypads).
+
+**Responsive and accessibility**
+- **RA-1 (D17): grid layout.** Rows show code + short name (81 Penampang, 82 Drainase, 83 Keriting, 84 Debu, 85 Lubang, 86 Alur, 87 Agregat); the full name is in the (i) popup. L/M/H cells are 72 dp, and **the camera control sits on each filled cell**, so a photo always belongs to one exact severity. Full names show on wide or landscape screens. Tested at the largest system font, where labels wrap to 2 lines and are never truncated.
+- **RA-2 (D18): accessibility.**
+  - Every cell has a full TalkBack label, e.g. "Keriting, sedang, 83,7 meter persegi".
+  - The URCI is a polite live region.
+  - All icons have labels, and status is always shown as text, never by color alone.
+  - Focus order runs header → grid row by row → Save.
+  - One TalkBack pass per screen.
+
+**Decisions from Pass 7**
+- **P7-1 (D19):** row 84 Debu uses single-choice R/S/T chips (tap again to clear); the camera attaches to the chosen chip.
+- **P7-2 (D20): history drill-down.** Sections → section trend → round → unit list (SU, URCI, rating, photo count, warning chips) → read-only inspection detail with Ubah (edit), PDF and Hapus (delete, with confirm). Back goes up one level.
+- **P7-3 (D21): photo controls.** "Hapus foto" has a confirm and removes the file, its record entry and its fingerprint. Retake keeps the old photo until the new one is saved. A missing EXIF time opens a date/time picker dialog, pre-filled with the file date; the stamp then shows "WAKTU MANUAL".
+- **P7-4 (D22): rounds on screen.** A read-only "Putaran Nov 2026" chip sits in the Inspect header. The ⋮ menu on each round row has "Tutup putaran" (with confirm); a closed round shows a lock icon and "Ditutup".
+- **P7-5 (D23): self-test access.** "Uji mandiri" opens with 5 taps on the version line in Settings, confirmed by a toast. The result screen shows FS 101 → 59 and FS 144 → 25 with each deduct, plus "Simpan ke diagnostik". This is documented in the manual's install checklist.
+
+### Navigation
+```
+ [First run] ─► [Inspeksi] ◄─tab─► [Riwayat: Sections] ─► [Section trend] ─► [Round units] ─► [Detail] ─Ubah─► [Inspeksi]
+                   │  ├ cell camera ─► [Foto]                    │ ⋮ Tutup putaran
+                   │  ├ result bar ─► [Calc table sheet]          └ banner ─► [Konflik list]
+                   │  └ (i) ─► popup ─► [Panduan §x]
+                   └─tab─► [File: backup · impor ─► Import result · bagikan · exports · diagnostik]
+ [Settings] (top-bar icon): language · bands · folder · source footnote · version (5 taps ─► Uji mandiri)
+```
+
+### Interaction states
+| Feature | Loading | Empty | Error | Success | Partial |
+|---|---|---|---|---|---|
+| First run | folder scan "Memeriksa folder…" | "Folder baru siap" | cancel: reason + Coba lagi | "Ditemukan N inspeksi" | — |
+| Inspeksi | — | blank grid | inline red | toast "Tersimpan" | draft restored dialog |
+| Foto | processing overlay | — | cell ⚠ "Foto belum diproses" | thumbnail + count | GPS: n/a |
+| Riwayat Sections | index rebuild progress | "Belum ada inspeksi" + Mulai | folder lost → re-select dialog | ranked list | "n dari N unit", hollow points |
+| Section trend | — | 1 round: "Butuh 2 putaran untuk tren" | file rusak chip | chart + headline | incomplete legend |
+| Import | progress | — | reject dialog (class reason) | result screen | "Y dilewati (alasan)" |
+| Backup/Export | progress + cancel | "Belum ada ekspor" | space/IO dialog | toast + Open/Share | — |
+| Konflik | — | banner hidden | — | toast "Konflik selesai" | n remaining |
+
+### Journey storyboard
+| Step | User does | User feels | Plan specifies |
+|---|---|---|---|
+| 1 | Opens the app for the first time | unsure | ST-1 welcome + folder outcomes + tip |
+| 2 | Picks section from the list | quick, confident | UJ-2 picker |
+| 3 | Types quantities | in control | IA-2 sticky live URCI, RA-1 grid |
+| 4 | Takes a photo on a cell | no waiting | ST-4 badge, RA-1 per-cell camera |
+| 5 | Taps the URCI | trusts the number | UJ-3 calc table |
+| 6 | Saves | done; retypes the header for the next unit (UJ-1 declined) | toast; picker reduces typing |
+| 7 | Engineer imports a bundle | reassured | ST-3 import result |
+| 8 | Engineer opens Riwayat | knows what to fix | IA-1 worst-first Sections, IA-3 headline |
+
+### NOT in scope (design)
+- "Save & next unit" (UJ-1): declined, D12.
+- Visual token system (DS-1): deferred to `/design-consultation`, D16.
+- Mockups: none generated (no image API key).
+
+### What already exists
+- DA 7348-R layout (inspectors' mental model), reused for the grid and calc table.
+- GeoMap Field: monospace coordinate style kept for stamps. Its dark theme is not reused (UI-1 requires light, high contrast).
+- Approved wireframe `docs/designs/urci-field-wireframe.png`: base layout. Superseded where these amendments differ (emoji, History order, per-row camera).
+
+## Implementation Tasks (design review)
+Synthesized from this review's findings. Each task derives from a specific finding above. Run with Claude Code or Codex; checkbox as you ship.
+
+- [ ] **D-T1 (P1, human: ~1d / CC: ~15min)**: Riwayat: Sections list + section trend reorder + round drill-down + detail screen
+  - Surfaced by: IA-1, IA-3, P7-2, P7-4
+  - Files: urci-app/www/history.js
+  - Verify: worst section is first; 3 taps reach any inspection; Back goes up one level
+- [ ] **D-T2 (P1, human: ~1d / CC: ~20min)**: Inspeksi: sticky result bar, collapsible header, pickers, round chip, R/S/T dust chips, per-cell camera, short-name grid
+  - Surfaced by: IA-2, UJ-2, P7-1, P7-4, RA-1
+  - Files: urci-app/www/inspect.js, styles.css
+  - Verify: 360 dp screen at largest font with keyboard open: URCI visible, no horizontal scroll; near-duplicate prompt appears for "I-HR1"
+- [ ] **D-T3 (P1, human: ~1d / CC: ~20min)**: First-run, conflict list, import result and calc-table screens
+  - Surfaced by: ST-1, ST-3, UJ-3
+  - Files: urci-app/www/onboarding.js, conflicts.js, import.js, calc.js
+  - Verify: reinstall shows "Ditemukan N inspeksi"; conflict buttons have no default; calc table matches the FS 101 deducts
+- [ ] **D-T4 (P1, human: ~4h / CC: ~10min)**: Message-surface helper + empty states + photo badges/overlay + photo delete/retake/time picker
+  - Surfaced by: ST-2, ST-4, P7-3
+  - Files: urci-app/www/ui-messages.js, photo.js
+  - Verify: each of the ~15 messages maps to one surface; retake failure keeps the old photo
+- [ ] **D-T5 (P2, human: ~4h / CC: ~10min)**: File tab hub + 7-day backup banner + hidden self-test entry
+  - Surfaced by: IA-4, IA-3, P7-5
+  - Files: urci-app/www/files.js, settings.js
+  - Verify: banner appears only after 7 days; 5 taps on the version line open Uji mandiri
+- [ ] **D-T6 (P2, human: ~4h / CC: ~10min)**: Material Symbols subset + TalkBack labels, live region, focus order, TalkBack pass
+  - Surfaced by: SLOP-1, RA-2
+  - Files: urci-app/www/icons/, all screens
+  - Verify: TalkBack walkthrough of every screen; no emoji in the UI
+- [ ] **D-T7 (P1, human: ~1d / CC: ~30min)**: Run /design-consultation to define tokens, then apply them
+  - Surfaced by: DS-1 (deferred)
+  - Files: DESIGN.md
+  - Verify: DESIGN.md exists, and every screen uses only its tokens
+
+## Design Review Completion Summary
+```
+  +====================================================================+
+  |         DESIGN PLAN REVIEW — COMPLETION SUMMARY                    |
+  +====================================================================+
+  | System Audit         | No DESIGN.md; large UI scope (10 screens)   |
+  | Step 0               | 5/10 initial; all 7 passes                  |
+  | Pass 1  (Info Arch)  | 4/10 → 9/10 after fixes                     |
+  | Pass 2  (States)     | 4/10 → 9/10 after fixes                     |
+  | Pass 3  (Journey)    | 5/10 → 7/10 (save-and-next declined)        |
+  | Pass 4  (AI Slop)    | 7/10 → 9/10 after fixes                     |
+  | Pass 5  (Design Sys) | 2/10 → 3/10 (tokens deferred to             |
+  |                      | /design-consultation)                       |
+  | Pass 6  (Responsive) | 5/10 → 9/10 after fixes                     |
+  | Pass 7  (Decisions)  | 5 resolved, 0 deferred                      |
+  +--------------------------------------------------------------------+
+  | NOT in scope         | written (3 items)                           |
+  | What already exists  | written                                     |
+  | TODOS.md updates     | 0 items (DS-1 is the next step)             |
+  | Approved Mockups     | 0 generated, 0 approved (no image API key)  |
+  | Decisions made       | 18 added to plan                            |
+  | Decisions deferred   | 1 (DS-1)                                    |
+  | Overall design score | 2/10 → 3/10 (lowest pass; capped by         |
+  |                      | Pass 5 until tokens exist)                  |
+  +====================================================================+
+```
+Not design-complete: Pass 5 (visual system) stays low until `/design-consultation` defines the tokens. Pass 3 is at 7 because "save and next unit" was declined.
+
+### Unresolved Decisions
+- DS-1: visual token system (colors, type scale, spacing, band colors). Deferred to `/design-consultation` (D16).
+
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
-| CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | mode: HOLD_SCOPE, 0 critical gaps (15 decisions approved, 3 declined) |
-| Outside Review | Claude Plan subagent (native fallback; Codex not installed) | Independent 2nd opinion | 1 | unavailable (external) / completed (native) | 14 findings (native); 14 resolved; 0 unresolved. No completed external review |
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | mode: HOLD_SCOPE, 0 critical gaps |
+| Outside Review | Claude subagents (native fallback; Codex not installed) | Independent 2nd opinion | 2 | unavailable (external) / completed (native) | CEO plan voice: 14 findings, 14 resolved; design voice: 22 findings fed into passes |
 | Eng Review | `/plan-eng-review` | Architecture & tests (required) | 0 | — | — |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+| Design Review | `/plan-design-review` | UI/UX gaps | 1 | ISSUES OPEN | score: 2/10 → 3/10, 18 decisions |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
-- **OUTSIDE COVERAGE:** codex, plan-review phase, unavailable (CLI not installed). The native fallback (Claude Plan subagent, same harness) completed with 14 findings, all resolved through D14–D22 or corrections. This is not external coverage.
-- **VERDICT:** CEO CLEARED. Eng review required.
+- **OUTSIDE COVERAGE:** codex unavailable (not installed) for both the plan-review and design phases. The native Claude subagents completed both (in-harness, not external coverage).
+- **VERDICT:** CEO CLEARED. Design ISSUES OPEN (visual tokens pending /design-consultation). Eng review required.
 
-NO UNRESOLVED DECISIONS
+**UNRESOLVED DECISIONS:**
+- DS-1 visual token system: deferred to /design-consultation
