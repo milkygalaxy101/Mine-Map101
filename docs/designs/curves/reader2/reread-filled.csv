@@ -1,0 +1,24 @@
+chart;figure;pdf_page_label;severity_or_q;x;y RE-READ - FILL IN
+86;C-6;C-5;H;2;7
+87;C-7 bottom (metric);C-6;M;5;5
+URCI;C-8;C-7;q=2;60;56
+URCI;C-8;C-7;q=2;120;19
+URCI;C-8;C-7;q=3;40;76
+URCI;C-8;C-7;q=3;60;62
+URCI;C-8;C-7;q=3;100;37
+URCI;C-8;C-7;q=3;160;9
+URCI;C-8;C-7;q=3;180;1
+URCI;C-8;C-7;q=4;80;55
+URCI;C-8;C-7;q=5;80;58
+URCI;C-8;C-7;q=5;120;38
+URCI;C-8;C-7;q=5;180;12
+URCI;C-8;C-7;q=5;200;6
+URCI;C-8;C-7;q=6;60;73
+URCI;C-8;C-7;q=6;80;62
+URCI;C-8;C-7;q=6;100;51
+URCI;C-8;C-7;q=6;140;32
+URCI;C-8;C-7;q=7;60;73
+URCI;C-8;C-7;q=7;80;62
+URCI;C-8;C-7;q=7;100;51
+URCI;C-8;C-7;q=7;140;32
+URCI;C-8;C-7;q=7;200;18

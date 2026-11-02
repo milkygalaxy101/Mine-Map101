@@ -16,5 +16,5 @@ jobs:
         with:
           node-version: 22
       - run: npm test
-      - name: Curve anchors (reader-1 draft)
-        run: python3 ../docs/designs/curves/validate.py ../docs/designs/curves/curves.reader1.json
+      - name: Curve anchors (reconciled curves)
+        run: python3 ../docs/designs/curves/validate.py ../docs/designs/curves/curves.reconciled.json

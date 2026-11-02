@@ -1,7 +1,8 @@
-# Appendix C curves — reader 1 (DRAFT), reader 2 compared
+# Appendix C curves — reconciled (CURVE-1 done)
 
-**Status:** draft, reader 1 of 2 (CURVE-1). The app must not ship these numbers until a second,
-independent human reading agrees with them within tolerance (±1 per deduct value, ±2 URCI).
+**Status: reconciled (2026-11-02).** The app uses `curves.reconciled.json` (copied to `urci-app/www/curves.json`
+with `status: reconciled`). How it was reached is under "Reconciliation" below; `curves.reader1.json` is kept
+as the reader-1 record.
 
 ## What is here
 
@@ -69,8 +70,25 @@ reader-1 values so the re-read stays independent).
 - 9 C-8 cells at TDV 20–40 were filled for q=3…7 where those lines have not started yet; they should be
   blank and were not compared.
 
-**Status:** deduct curves are ready to reconcile once reader 2 re-reads 86-H 2 % and 87-M 5 %. C-8 waits for
-the 21-point re-read. `curves.json` stays `draft-reader1` until then.
+## Reconciliation (2026-11-02)
+
+After the 23-point re-read (`reader2/reread-filled.csv`, merged into `reader2/reader2-final.csv`):
+
+| Chart | Points | Over ±1 | Max diff | Mean diff (r2 − r1) |
+|---|---|---|---|---|
+| 81–87 (deduct) | 204 | 0 | 0.9 | −0.05 … +0.10 |
+| C-8 (URCI) | 57 | 5 (1.0, 1.0, 1.2, 1.3, 1.5) | 1.5 | +0.30 |
+
+- **Deduct curves:** the reader-1 trace is kept. Reader 2 confirms it at every point, with no bias, and the dense
+  trace is smoother than integer hand readings. Both earlier slips were corrected on re-read: 87-M 5 % went
+  from 3.5 to 5, and 86-H 2 % from 6 to 7.
+- **C-8:** midpoint of both readers along each q-curve (`reconcile.py`). The reader-2 minus reader-1 difference
+  is interpolated along TDV and half of it is added to every reader-1 point. The shifts range from −0.45 to
+  +0.75. The 5 remaining differences are within the chart's own drafting accuracy (about ±1) and the ±2 URCI
+  tolerance.
+- **Anchors on the reconciled curves:** FS101 URCI 59 (TM 59). FS144 URCI 23.05 → 23 (TM 25); the TM's own
+  hand reading sits at the edge of ±2, unchanged by reconciliation (reader 2 alone gives 24).
+- Rebuild: `python3 compare.py reader2/reader2-final.csv && python3 reconcile.py && python3 validate.py curves.reconciled.json`.
 
 ## Things reader 2 must look at
 

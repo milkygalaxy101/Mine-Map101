@@ -149,11 +149,12 @@ test('rounding happens once from raw: 84.45 → 84, 84.5 → 85', () => {
   assert.equal(E.rate(E.roundHalfUp(84.5)), 0);
 });
 
-test('draft curves are flagged on every result', () => {
-  const r = E.computeUrci(curves, { sampleArea: 100, entries: [] });
-  assert.ok(r.flags.includes(E.FLAG.CURVES_DRAFT));
-  const r2 = E.computeUrci(fakeCurves(), { sampleArea: 100, entries: [] });
-  assert.ok(!r2.flags.includes(E.FLAG.CURVES_DRAFT));
+test('draft curves are flagged on every result; reconciled curves are not', () => {
+  const draft = { ...fakeCurves(), status: 'draft-reader1' };
+  assert.ok(E.computeUrci(draft, { sampleArea: 100, entries: [] }).flags.includes(E.FLAG.CURVES_DRAFT));
+  assert.ok(!E.computeUrci(fakeCurves(), { sampleArea: 100, entries: [] }).flags.includes(E.FLAG.CURVES_DRAFT));
+  assert.equal(curves.status, 'reconciled');
+  assert.ok(!E.computeUrci(curves, { sampleArea: 100, entries: [] }).flags.includes(E.FLAG.CURVES_DRAFT));
 });
 
 test('bad input throws InputError naming the field', () => {
