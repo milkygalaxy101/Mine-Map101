@@ -1,0 +1,39 @@
+name: URCI Field APK
+on:
+  push:
+    paths:
+      - 'urci-app/**'
+      - '.github/workflows/urci-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: urci-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: urci-app/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Install web deps
+        run: npm ci
+      - name: Vendor @capacitor/core and jsPDF
+        run: node scripts/vendor.mjs
+      - name: Sync Capacitor
+        run: npx cap sync android
+      - name: Build debug APK
+        working-directory: urci-app/android
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: urci-field-debug-apk
+          path: urci-app/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

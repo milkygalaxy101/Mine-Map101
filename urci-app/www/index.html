@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; script-src 'self'; style-src 'self'">
+<title>URCI Field</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 id="title">Inspeksi</h1>
+    <button id="lang" class="btn-tertiary" type="button">EN</button>
+  </header>
+  <main id="app" aria-live="off"></main>
+  <!-- Order matters: @capacitor/core must load before anything calls Capacitor.registerPlugin (spike lesson). -->
+  <script src="vendor/capacitor.js"></script>
+  <script src="content.js"></script>
+  <script src="icons.js"></script>
+  <script src="urci-engine.js"></script>
+  <script src="store.js"></script>
+  <script src="dev-storage.js"></script>
+  <script src="inspect.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

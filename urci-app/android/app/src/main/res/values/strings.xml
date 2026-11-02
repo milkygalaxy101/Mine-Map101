@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">URCI Field</string>
+    <string name="title_activity_main">URCI Field</string>
+    <string name="package_name">id.urcifield.app</string>
+    <string name="custom_url_scheme">id.urcifield.app</string>
+</resources>

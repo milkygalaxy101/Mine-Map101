@@ -4,9 +4,22 @@
   "private": true,
   "description": "URCI Field: offline unsurfaced road inspection (TM 5-626) for Android",
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "vendor": "node scripts/vendor.mjs",
+    "sync": "node scripts/vendor.mjs && cap sync android",
+    "ui-test": "node test/ui/inspect.ui.cjs"
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/camera": "8.2.6",
+    "@capacitor/core": "8.6.0",
+    "@capacitor/geolocation": "8.2.4",
+    "jspdf": "4.2.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.0"
   }
 }

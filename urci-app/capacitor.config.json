@@ -1,0 +1,6 @@
+{
+  "appId": "id.urcifield.app",
+  "appName": "URCI Field",
+  "webDir": "www",
+  "android": { "allowMixedContent": false }
+}
