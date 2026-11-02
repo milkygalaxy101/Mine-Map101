@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob: https://localhost; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self' https://localhost; worker-src 'self' blob:">
+<title>URCI Spike</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+  :root { --ink:#14171A; --paper:#FFFFFF; --rule:#C9CED6; --muted:#4A5260; --primary:#1D3B6E; --tint:#EEF2F8; --error:#B42318; --warning:#8A5300; --success:#14532D; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font:400 16px/1.5 Barlow, sans-serif;
+         padding: calc(env(safe-area-inset-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 16px); }
+  h1 { font:600 24px/1.2 Barlow; margin:8px 0 4px; }
+  p.sub { color:var(--muted); margin:0 0 12px; font-size:14px; }
+  .step { border-top:1px solid var(--rule); padding:12px 0; }
+  .step h2 { font:600 14px Barlow; color:var(--muted); margin:0 0 8px; letter-spacing:.02em; }
+  .step h2 em { font-style:normal; color:var(--primary); margin-right:6px; }
+  button { font:600 16px Barlow; min-height:48px; width:100%; border-radius:6px; border:2px solid var(--primary);
+           background:var(--primary); color:#fff; margin:4px 0; }
+  button.sec { background:var(--paper); color:var(--primary); }
+  button:disabled { opacity:.4; }
+  .row { display:flex; gap:8px; } .row button { flex:1; }
+  #thumbs { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  #thumbs img { width:96px; height:72px; object-fit:cover; border:1px solid var(--rule); border-radius:4px; }
+  #log { font:400 13px/1.45 'IBM Plex Mono', monospace; background:#F6F7F9; border:1px solid var(--rule); border-radius:6px;
+         padding:8px; white-space:pre-wrap; word-break:break-word; max-height:40vh; overflow:auto; }
+  .ok { color:var(--success); } .bad { color:var(--error); } .warn { color:var(--warning); }
+  canvas { display:none; }
+</style>
+</head>
+<body>
+  <h1>URCI Spike</h1>
+  <p class="sub">Uji perangkat minggu 1 (eng R13). Jalankan langkah 1–6 berurutan, lalu ekspor hasil.</p>
+
+  <div class="step"><h2><em>1</em>FOLDER DATA (SAF)</h2>
+    <button id="btnFolder">Pilih folder data</button></div>
+
+  <div class="step"><h2><em>2</em>FOTO ≤2048 PX + STEMPEL</h2>
+    <button id="btnPhoto" disabled>Ambil foto &amp; stempel</button>
+    <div id="thumbs"></div></div>
+
+  <div class="step"><h2><em>3</em>SIMPAN AMAN (SAF .new → .old)</h2>
+    <button id="btnSaveJson" class="sec" disabled>Simpan inspection.json 3×</button></div>
+
+  <div class="step"><h2><em>4</em>PDF 20 FOTO (WORKER + URL)</h2>
+    <button id="btnPdf" class="sec" disabled>Buat PDF 20 halaman</button></div>
+
+  <div class="step"><h2><em>5</em>GPS</h2>
+    <div class="row"><button id="btnGps" class="sec">GPS Google</button><button id="btnNative" class="sec">GPS bawaan</button></div></div>
+
+  <div class="step"><h2><em>6</em>DAFTAR FOLDER &amp; RUANG</h2>
+    <button id="btnList" class="sec" disabled>Hitung isi folder</button></div>
+
+  <div class="step"><h2><em>7</em>HASIL</h2>
+    <button id="btnExport" disabled>Simpan spike-results.json</button>
+    <div id="log"></div></div>
+
+  <canvas id="cv"></canvas>
+  <script src="spike.js"></script>
+</body>
+</html>

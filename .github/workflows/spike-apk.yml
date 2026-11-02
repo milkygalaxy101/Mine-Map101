@@ -1,0 +1,39 @@
+name: Spike APK
+on:
+  push:
+    paths:
+      - 'spike/**'
+      - '.github/workflows/spike-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: spike
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: spike/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Install web deps
+        run: npm ci
+      - name: Vendor jsPDF
+        run: node scripts/vendor.mjs
+      - name: Sync Capacitor
+        run: npx cap sync android
+      - name: Build debug APK
+        working-directory: spike/android
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: urci-spike-debug-apk
+          path: spike/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

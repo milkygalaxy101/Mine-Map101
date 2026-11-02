@@ -1,0 +1,6 @@
+{
+  "appId": "id.urcifield.spike",
+  "appName": "URCI Spike",
+  "webDir": "www",
+  "android": { "allowMixedContent": false }
+}

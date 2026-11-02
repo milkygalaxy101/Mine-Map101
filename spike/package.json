@@ -1,0 +1,20 @@
+{
+  "name": "urci-spike",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Throwaway week-1 device spike for URCI Field (eng R13). Not production code.",
+  "scripts": {
+    "sync": "cap sync android",
+    "vendor": "node scripts/vendor.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/camera": "8.2.6",
+    "@capacitor/core": "8.6.0",
+    "@capacitor/geolocation": "8.2.4",
+    "jspdf": "4.2.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.0"
+  }
+}
