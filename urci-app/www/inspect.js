@@ -237,7 +237,7 @@
       const flags = new Map((result ? result.rows : []).map((r) => [`${r.code}-${r.sev}`, r.flags]));
       for (const code of CODES) {
         const d = t.distress[code];
-        const label = el('button', { class: 'row-label', type: 'button', 'aria-label': `${code} ${d.name}. ${t.helpSource}`, onclick: () => this.notice(`${code} ${d.name}`, `${d.help}\n\n${d.fig} · ${t.helpSource}`) },
+        const label = el('button', { class: 'row-label', type: 'button', 'aria-label': `${code} ${d.name}. ${t.helpSource}`, onclick: () => this.openHelp(code) },
           el('span', { class: 'head' }, el('span', { class: 'code', text: code }), icon('info', '', 16)),
           el('span', { class: 'short', text: d.short }), el('span', { class: 'full', text: d.name }),
           el('span', { class: 'measure', text: t.measure[d.unit || 'none'] }));
@@ -312,7 +312,7 @@
       const err = el('p', { class: 'err-text', role: 'alert' });
       const close = this.sheet(el('h2', { text: `${code} ${d.short} · ${t.sevName[sev]}` }),
         el('div', { class: 'sev-guide' }, el('span', { class: 'label', text: t.looksLike }), el('span', { text: d.sev[sev] })),
-        code === '85' ? this.potholeTable(sev) : null,
+        this.moreSection(code, sev),
         el('label', { class: 'ask', for: 'qty', text: t.ask[d.unit] }),
         el('div', { class: 'qty-input' }, input, el('span', { class: 'unit', text: unit })), err,
         this.state.qty[key] !== undefined ? el('button', { class: 'btn-secondary btn-block', type: 'button', disabled: true, 'aria-describedby': 'photo-note' }, icon('photo_camera', ''), ' ', t.takePhoto) : null,
@@ -346,11 +346,51 @@
         el('tbody', {}, ...GRID.map((row, i) => el('tr', {},
           el('th', { scope: 'row', text: pt.depths[i] }),
           ...row.map((s) => el('td', { class: s === sev ? 'mark' : '', 'aria-label': t.sevName[s], 'aria-current': s === sev ? 'true' : null, text: t.sevShort[s] }))))));
-      // Closed by default so the pothole keypad looks like the other six; the table is there when unsure.
-      const box = el('div', { class: 'pothole', id: 'pothole-table', hidden: true }, table);
-      const toggle = el('button', { class: 'btn-tertiary', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'pothole-table', text: pt.show,
-        onclick: () => { const open = box.hidden; box.hidden = !open; toggle.textContent = open ? pt.hide : pt.show; toggle.setAttribute('aria-expanded', String(open)); } });
-      return el('div', { class: 'pothole-wrap' }, toggle, box);
+      return table;
+    }
+
+    // All three severity levels of one distress as a table; the row being entered (if any) is marked.
+    levelsTable(code, sev) {
+      const t = this.t();
+      const d = t.distress[code];
+      return el('table', { class: 'levels-table' }, el('caption', { text: t.levelsTitle }),
+        el('tbody', {}, ...SEVS.map((s) => el('tr', { class: s === sev ? 'mark' : '', 'aria-current': s === sev ? 'true' : null },
+          el('th', { scope: 'row', text: t.sevName[s] }), el('td', { text: d.sev[s] })))));
+    }
+
+    illus(code) {
+      const t = this.t();
+      return el('figure', { class: 'illus-fig' }, illustration(code, t.illus, `${t.distress[code].name}: ${t.distress[code].help}`));
+    }
+
+    // Same in every keypad: one link that opens the picture and the severity table (closed by default).
+    moreSection(code, sev) {
+      const t = this.t();
+      const d = t.distress[code];
+      const box = el('div', { class: 'more-body', id: 'more-body', hidden: true },
+        this.illus(code),
+        code === '85' ? this.potholeTable(sev) : this.levelsTable(code, sev),
+        d.numbers ? null : el('p', { class: 'note', text: t.noNumbers }));
+      const toggle = el('button', { class: 'btn-tertiary more-toggle', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'more-body', text: t.moreShow,
+        onclick: () => { const open = box.hidden; box.hidden = !open; toggle.textContent = open ? t.moreHide : t.moreShow; toggle.setAttribute('aria-expanded', String(open)); } });
+      return el('div', { class: 'more' }, toggle, box);
+    }
+
+    // Row-name help: picture, what it is, how to measure, do-not-confuse note, all levels, source.
+    openHelp(code) {
+      const t = this.t();
+      const d = t.distress[code];
+      let close;
+      close = this.sheet(
+        el('h2', { text: `${code} ${d.name}` }),
+        this.illus(code),
+        el('p', { text: d.help }),
+        d.confuse ? el('div', { class: 'confuse' }, icon('warning', ''), el('p', {}, el('strong', { text: `${t.confuseTitle} ` }), d.confuse)) : null,
+        el('h3', { class: 'sub-h', text: t.howTitle }), el('p', { text: d.how }),
+        code === '85' ? this.potholeTable(null) : this.levelsTable(code, null),
+        d.numbers ? null : el('p', { class: 'note', text: t.noNumbers }),
+        el('p', { class: 'note', text: `${d.fig} · ${t.helpSource}` }),
+        el('div', { class: 'sheet-actions' }, el('button', { class: 'btn-primary', type: 'button', text: t.close, onclick: () => close() })));
     }
 
     // ---------- calc sheet (UJ-3, H2) ----------

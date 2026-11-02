@@ -85,10 +85,23 @@ main { padding: 0 var(--md); max-width: 720px; margin: 0 auto; }
 .ask { display: block; margin-bottom: var(--xs); font: 600 18px/1.3 Barlow; }
 .result-meta .need { font: 500 14px/1.3 Barlow; color: var(--ink); }
 
+/* picture + severity tables (keypad "Lihat gambar & tabel" and row help) */
+.more { margin: -8px 0 var(--sm); }
+.more-body { margin-bottom: var(--sm); }
+.illus-fig { margin: 0 0 var(--sm); padding: var(--sm); border: 1px solid var(--rule); border-radius: var(--r-lg); background: var(--paper); }
+.illus { display: block; height: auto; }
+.levels-table { width: 100%; border-collapse: collapse; margin: var(--sm) 0; font-size: 15px; line-height: 1.35; }
+.levels-table caption { text-align: left; font: 600 16px/1.3 Barlow; margin-bottom: var(--xs); }
+.levels-table th, .levels-table td { border: 1px solid var(--rule); padding: 6px var(--sm); text-align: left; vertical-align: top; }
+.levels-table th { width: 72px; font-weight: 600; }
+.levels-table tr.mark th, .levels-table tr.mark td { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.confuse { display: flex; gap: var(--sm); align-items: flex-start; margin: 0 0 var(--sm); padding: var(--sm) var(--md); border-top: 3px solid var(--warning); }
+.confuse .icon { color: var(--warning); flex: none; margin-top: 2px; }
+.confuse p { margin: 0; }
+.sub-h { margin: var(--md) 0 var(--xs); font: 600 18px/1.3 Barlow; }
+
 /* pothole size table (TM 5-626 Table B-1) */
-.pothole-wrap { margin: -8px 0 var(--sm); }
-.pothole { margin: 0 0 var(--sm); }
-.pothole-table { width: 100%; border-collapse: collapse; table-layout: fixed; font: 500 14px/1.25 Barlow; }
+.pothole-table { width: 100%; margin: var(--sm) 0; border-collapse: collapse; table-layout: fixed; font: 500 14px/1.25 Barlow; }
 .pothole-table caption { text-align: left; font: 600 16px/1.3 Barlow; margin-bottom: var(--xs); }
 .pothole-table th, .pothole-table td { border: 1px solid var(--rule); padding: 4px 2px; text-align: center; }
 .pothole-table th { font-weight: 500; color: var(--muted); }

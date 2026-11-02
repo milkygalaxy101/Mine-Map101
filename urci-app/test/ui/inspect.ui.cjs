@@ -90,10 +90,26 @@ async function run(browser, base, scale) {
     const row = page.locator('.grid-row').filter({ has: page.locator('.code', { hasText: '85' }) });
     await row.locator('button.cell').nth(1).click();
     check(!(await page.isVisible('.sheet .pothole-table')), `${tag} pothole size table is closed by default (keypad looks like the others)`);
-    await page.click('.sheet .pothole-wrap .btn-tertiary');
+    await page.click('.sheet .more-toggle');
     const marked = await page.locator('.sheet .pothole-table td.mark').allTextContents();
     check(marked.length === 4 && marked.every((x) => x === 'S'), `${tag} "Lihat tabel ukuran" opens Table B-1 with the 4 Sedang cells marked, got ${JSON.stringify(marked)}`);
     check(await page.evaluate(() => document.querySelector('.sheet').scrollWidth <= document.querySelector('.sheet').clientWidth), `${tag} pothole table fits the sheet width`);
+    await page.click('.sheet .sheet-actions .btn-tertiary');
+  }
+  // row-name help: picture + do-not-confuse note (corrugation vs ruts)
+  {
+    await page.locator('.grid-row').filter({ has: page.locator('.code', { hasText: '83' }) }).locator('.row-label').click();
+    check(await page.locator('.sheet svg.illus').count() === 1, `${tag} Bergelombang help shows a picture`);
+    check((await page.textContent('.sheet .confuse')).includes('Alur roda'), `${tag} Bergelombang help warns not to confuse it with Alur roda`);
+    check((await page.textContent('.sheet')).includes('MELINTANG'), `${tag} help says corrugations run across the road`);
+    check(await page.evaluate(() => document.querySelector('.sheet').scrollWidth <= document.querySelector('.sheet').clientWidth), `${tag} help sheet fits the width`);
+    await page.click('.sheet .sheet-actions .btn-primary');
+    const r86 = page.locator('.grid-row').filter({ has: page.locator('.code', { hasText: '86' }) });
+    await r86.locator('button.cell').nth(2).click();
+    check(!(await page.isVisible('.sheet .levels-table')), `${tag} keypad picture/table closed by default`);
+    await page.click('.sheet .more-toggle');
+    check(await page.isVisible('.sheet svg.illus'), `${tag} Alur roda keypad opens the picture`);
+    check((await page.locator('.sheet .levels-table tr.mark th').allTextContents()).join() === 'Berat', `${tag} Alur roda · Berat keypad marks the Berat row`);
     await page.click('.sheet .sheet-actions .btn-tertiary');
   }
   await cell('81', 1, '30,5');
