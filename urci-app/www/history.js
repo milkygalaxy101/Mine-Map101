@@ -52,6 +52,7 @@
       if (route.view === 'section') return this.renderSection(route.key);
       if (route.view === 'round') return this.renderRound(route.key, route.roundId);
       if (route.view === 'detail') return this.renderDetail(route.uuid);
+      if (route.view === 'conflicts') return this.renderConflicts();
       return this.renderSections();
     }
 
@@ -65,6 +66,11 @@
       const list = UrciHistory.buildSections([...this.store.records.values()], this.store.rounds, {
         roundLabel: (id) => this.roundLabel(id), hasConflict: (u) => this.store.conflicts.has(u) });
       this.mount.append(el('h2', { class: 'block', text: t.sectionsTitle }));
+      const nConf = [...this.store.conflicts.values()].reduce((a, l) => a + l.length, 0);
+      if (nConf) {
+        this.mount.append(el('a', { class: 'banner warning link-banner', href: '#/history/conflicts', id: 'conflicts-banner' }, icon('warning', ''),
+          el('p', { text: t.conflictsBanner.replace('{n}', nConf) })));
+      }
       if (this.store.broken.length) {
         this.mount.append(el('div', { class: 'banner warning', role: 'status' }, icon('warning', ''),
           el('p', { text: t.brokenFiles.replace('{n}', this.store.broken.length) })));
@@ -303,6 +309,55 @@
       const scrim = el('div', { class: 'scrim center' }, el('div', { class: 'dialog', role: 'alertdialog', 'aria-label': title }, el('h2', { text: title }), el('p', { text: body }), el('div', { class: 'dialog-actions' }, ok)));
       document.body.append(scrim);
       ok.focus();
+    }
+
+    // ---------- ST-3: conflicts, differing fields only, two equal buttons, no default ----------
+    renderConflicts() {
+      const t = this.t();
+      this.mount.append(this.back(), el('h2', { class: 'block', text: t.conflictsTitle }), el('p', { class: 'note', text: t.conflictsHelp }));
+      const items = [];
+      for (const [uuid, list] of this.store.conflicts) for (const c of list) items.push({ uuid, c, local: this.store.records.get(uuid) });
+      if (!items.length) { this.mount.append(el('p', { text: t.noConflicts })); return; }
+      for (const { uuid, c, local } of items) {
+        const fields = this.S.diffFields(local, c.record);
+        const h = (local.header || c.record.header || {});
+        const card = el('section', { class: 'conflict' }, el('h3', { class: 'sub-h', text: `${h.branch || ''} / ${h.section || ''} / SU${h.sampleUnit || '?'}` }));
+        const tbl = el('table', { class: 'data-table conflict-table' },
+          el('thead', {}, el('tr', {}, el('th', { scope: 'col', text: '' }), el('th', { scope: 'col', text: t.mine }), el('th', { scope: 'col', text: t.incoming }))));
+        const tb = el('tbody');
+        for (const f of fields) tb.append(el('tr', {}, el('th', { scope: 'row', text: this.fieldLabel(f) }), el('td', { class: 'mono', text: this.fieldValue(local, f) }), el('td', { class: 'mono', text: this.fieldValue(c.record, f) })));
+        tbl.append(tb);
+        const pick = async (choice) => {
+          await this.store.resolveConflict(uuid, c.name, choice);
+          this.toast(t.conflictResolved);
+          this.mount.replaceChildren();
+          this.renderConflicts();
+        };
+        card.append(tbl, el('div', { class: 'choice' },
+          el('button', { class: 'btn-secondary', type: 'button', text: t.useMine, onclick: () => pick('mine') }),
+          el('button', { class: 'btn-secondary', type: 'button', text: t.useIncoming, onclick: () => pick('incoming') })));
+        this.mount.append(card);
+      }
+    }
+
+    fieldLabel(f) {
+      const t = this.t();
+      if (f === 'deleted') return t.deletedWord;
+      if (f.startsWith('header.')) { const k = f.slice(7); return t[k] || k; }
+      const [code, sev] = f.split('-');
+      return t.distress[code] ? `${code} ${t.distress[code].short} · ${t.sevName[sev]}` : f;
+    }
+
+    fieldValue(rec, f) {
+      const t = this.t();
+      if (f === 'deleted') return rec.deletedAt ? t.deletedWord : '-';
+      if (rec.deletedAt) return t.deletedWord;
+      if (f.startsWith('header.')) { const v = (rec.header || {})[f.slice(7)]; return v === undefined || v === '' ? '-' : String(v); }
+      const [code, sev] = f.split('-');
+      const e = (rec.entries || []).find((x) => x.code === code && x.sev === sev);
+      if (!e) return '-';
+      const n = (e.photos || []).length;
+      return `${code === '84' ? 'X' : String(e.quantity)}${n ? ` · ${n} ${t.photosWord}` : ''}`;
     }
 
     async del(r) {

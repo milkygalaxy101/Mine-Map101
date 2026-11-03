@@ -5,4 +5,6 @@ import { copyFileSync, mkdirSync } from 'node:fs';
 mkdirSync('www/vendor', { recursive: true });
 copyFileSync('node_modules/@capacitor/core/dist/capacitor.js', 'www/vendor/capacitor.js');
 copyFileSync('node_modules/jspdf/dist/jspdf.umd.min.js', 'www/vendor/jspdf.umd.min.js');
-console.log('vendored @capacitor/core, jspdf');
+// fflate: zip/unzip for the browser test build only (the phone uses java.util.zip in UrciStorage)
+copyFileSync('node_modules/fflate/umd/index.js', 'www/vendor/fflate.js');
+console.log('vendored @capacitor/core, jspdf, fflate');

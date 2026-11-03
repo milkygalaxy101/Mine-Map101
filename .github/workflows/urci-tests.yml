@@ -44,6 +44,7 @@ jobs:
           node test/ui/inspect.ui.cjs
           node test/ui/native-boot.ui.cjs
           node test/ui/history.ui.cjs
+          node test/ui/files.ui.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

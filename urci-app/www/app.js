@@ -109,12 +109,19 @@
       onEdit: (rec) => { screen.loadRecord(rec); location.hash = '#/inspect'; },
     });
 
+    const filesScreen = new window.FilesScreen({
+      mount, store, content, getLang: () => lang, platform, storeApi: window.UrciStore, bundleApi: window.UrciBundle, kv: io.kv,
+      toast: (m) => screen.toast(m),
+    });
+
     // ---- tabs + hash routes (the phone's back button walks back up the History levels) ----
     const tabs = document.getElementById('tabs');
     tabs.hidden = false;
     function parse(hash) {
       const p = (hash || '').replace(/^#\/?/, '').split('/').map(decodeURIComponent);
+      if (p[0] === 'files') return { tab: 'files' };
       if (p[0] !== 'history') return { tab: 'inspect' };
+      if (p[1] === 'conflicts') return { tab: 'history', view: 'conflicts' };
       if (p[1] === 's' && p[3] === 'r') return { tab: 'history', view: 'round', key: p[2], roundId: p[4] };
       if (p[1] === 's') return { tab: 'history', view: 'section', key: p[2] };
       if (p[1] === 'i') return { tab: 'history', view: 'detail', uuid: p[2] };
@@ -122,17 +129,21 @@
     }
     function route() {
       const r = parse(location.hash);
+      const oldToast = document.querySelector('.toast');
+      if (oldToast && document.body.dataset.tab && document.body.dataset.tab !== r.tab) oldToast.remove(); // a toast belongs to the tab it came from
+      document.body.dataset.tab = r.tab;
       const onInspect = r.tab === 'inspect';
       document.body.classList.toggle('on-inspect', onInspect);
-      document.getElementById('tab-inspect').setAttribute('aria-current', onInspect ? 'page' : 'false');
-      document.getElementById('tab-history').setAttribute('aria-current', onInspect ? 'false' : 'page');
-      document.getElementById('tab-inspect').textContent = t().tabInspect;
-      document.getElementById('tab-history').textContent = t().tabHistory;
+      for (const [id, tab, label] of [['tab-inspect', 'inspect', 'tabInspect'], ['tab-history', 'history', 'tabHistory'], ['tab-files', 'files', 'tabFiles']]) {
+        const a = document.getElementById(id);
+        a.setAttribute('aria-current', r.tab === tab ? 'page' : 'false');
+        a.textContent = t()[label];
+      }
       helpBtn.hidden = !onInspect;
-      titleEl.textContent = onInspect ? t().inspect : t().historyTitle;
+      titleEl.textContent = onInspect ? t().inspect : r.tab === 'files' ? t().filesTitle : t().historyTitle;
       const bar = document.getElementById('resultbar');
       if (bar) bar.hidden = !onInspect;
-      if (onInspect) screen.render(); else historyScreen.render(r);
+      if (onInspect) screen.render(); else if (r.tab === 'files') filesScreen.render(); else historyScreen.render(r);
       if (!onInspect) { const b = document.getElementById('resultbar'); if (b) b.hidden = true; }
       window.scrollTo(0, 0);
     }
@@ -148,7 +159,7 @@
     await screen.start();
     route();
     if (firstRunNote) screen.toast(firstRunNote);
-    window.__urci = { screen, store, curves, platform, historyScreen }; // test hook
+    window.__urci = { screen, store, curves, platform, historyScreen, filesScreen }; // test hook
   }
   boot().catch((e) => fatal('Gagal memulai / start failed: ' + (e && (e.message || e))));
 })();

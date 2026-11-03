@@ -95,8 +95,8 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${msg}`); if (
   await page.waitForSelector('.dialog');
   check((await page.textContent('.dialog .btn-primary')).trim() === 'Hapus', 'delete asks with an explicit red "Hapus"');
   await page.click('.dialog .btn-primary');
-  await page.waitForSelector('.toast');
-  check(await page.evaluate(() => !window.__urci.store.live().some((x) => x.header.branch === 'I-HR02')), 'record deleted (tombstone)');
+  await page.waitForFunction(() => !window.__urci.store.live().some((x) => x.header.branch === 'I-HR02'));
+  check(true, 'record deleted (tombstone)');
 
   check(errors.length === 0, `no script errors ${errors.length ? JSON.stringify(errors) : ''}`);
   await browser.close();

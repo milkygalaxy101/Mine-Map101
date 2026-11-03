@@ -76,8 +76,19 @@
       },
     });
 
+    const bundles = {
+      exportZip: (paths, manifest, name) => P.exportZip({ paths, manifest: JSON.stringify(manifest), name }),
+      pick: () => P.pickBundle(),
+      inspect: async (picked) => { const r = await P.inspectZip({ uri: picked.uri }); return { entries: r.entries, texts: r.texts || {} }; },
+      importPhotos: (picked, accept, bytes) => P.importZipPhotos({ uri: picked.uri, accept, bytes }),
+      open: (relPath) => P.openExport({ relPath }),
+      share: (relPath) => P.shareExport({ relPath }),
+      listExports: async () => { try { return (await P.list({ path: 'exports' })).entries.filter((e) => !e.dir); } catch (e) { return []; } },
+    };
+
     return {
       native: true,
+      bundles,
       io: { fs, kv: dev.kv, newId: dev.newId, local: dev.local },
       media, geo,
       folderStatus: () => P.folderStatus(),
@@ -169,7 +180,89 @@
       },
     });
 
-    return { native: false, io: { fs: dev.fs, kv: dev.kv, newId: dev.newId, local: dev.local }, media, geo };
+    const exportsMem = new Map(); // name -> Blob (test build)
+    function download(blob, name) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.hidden = true;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      root.__urciLastExport = { name, size: blob.size, blob }; // test hook
+    }
+    async function remember(blob, name) {
+      let final = name;
+      for (let i = 2; exportsMem.has(final); i++) final = name.replace(/(\.urci\.zip|\.pdf)$/, `-${i}$1`);
+      exportsMem.set(final, blob);
+      await dev.fs.writeTextSafe(`exports/${final}`, `export ${blob.size} bytes (test mode)`);
+      return final;
+    }
+    const origSaveExport = media.saveExport;
+    media.saveExport = async (blob, name) => { const final = await remember(blob, name); download(blob, final); return { relPath: `exports/${final}`, cachePath: null }; };
+    void origSaveExport;
+    const picked = new Map();
+    const bundles = {
+      async exportZip(paths, manifest, name) {
+        const files = { 'manifest.json': root.fflate.strToU8(JSON.stringify(manifest)) };
+        for (const p of paths) {
+          if (filed.has(p)) files[p] = new Uint8Array(await filed.get(p).arrayBuffer());
+          else { try { files[p] = root.fflate.strToU8(await dev.fs.readText(p)); } catch (e) { /* missing file: not packed */ } }
+        }
+        const blob = new Blob([root.fflate.zipSync(files, { level: 0 })], { type: 'application/zip' });
+        const final = await remember(blob, name);
+        download(blob, final);
+        return { relPath: `exports/${final}`, cachePath: null, bytes: blob.size };
+      },
+      pick() {
+        return new Promise((resolve, reject) => {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = '.zip,application/zip';
+          input.id = 'urci-bundle-input';
+          input.hidden = true;
+          input.addEventListener('change', () => {
+            const f = input.files && input.files[0];
+            input.remove();
+            if (!f) return reject(Object.assign(new Error('cancelled'), { code: 'CANCELLED' }));
+            const uri = `mem:${dev.newId()}`;
+            picked.set(uri, f);
+            resolve({ uri, name: f.name });
+          }, { once: true });
+          input.addEventListener('cancel', () => { input.remove(); reject(Object.assign(new Error('cancelled'), { code: 'CANCELLED' })); }, { once: true });
+          document.body.append(input);
+          input.click();
+        });
+      },
+      async inspect(p) {
+        let files;
+        try { files = root.fflate.unzipSync(new Uint8Array(await picked.get(p.uri).arrayBuffer())); } catch (e) { throw Object.assign(new Error('not a zip'), { code: 'BUNDLE_INVALID:NOT_A_BUNDLE' }); }
+        const entries = [];
+        const texts = {};
+        for (const [name, bytes] of Object.entries(files)) {
+          if (name.endsWith('/')) continue;
+          entries.push({ name, size: bytes.length });
+          if (name.endsWith('.json')) texts[name] = root.fflate.strFromU8(bytes);
+        }
+        p.files = files;
+        return { entries, texts };
+      },
+      async importPhotos(p, accept) {
+        let copied = 0, existed = 0;
+        for (const name of accept) {
+          if (filed.has(name)) { existed++; continue; }
+          try { await dev.fs.createNew(name, `jpeg ${p.files[name].length} bytes (test mode)`); } catch (e) { existed++; continue; }
+          filed.set(name, new Blob([p.files[name]], { type: 'image/jpeg' }));
+          copied++;
+        }
+        return { copied, existed };
+      },
+      async open(relPath) { const n = relPath.replace(/^exports\//, ''); if (exportsMem.has(n)) download(exportsMem.get(n), n); },
+      async share(relPath) { return this.open(relPath); },
+      async listExports() { try { return (await dev.fs.list('exports')).filter((e) => !e.dir).map((e) => ({ ...e, size: exportsMem.has(e.name) ? exportsMem.get(e.name).size : 0 })); } catch (e) { return []; } },
+    };
+
+    return { native: false, bundles, io: { fs: dev.fs, kv: dev.kv, newId: dev.newId, local: dev.local }, media, geo };
   }
 
   // GPS state shared by both platforms.

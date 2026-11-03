@@ -51,7 +51,12 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 @CapacitorPlugin(name = "UrciStorage")
 public class UrciStoragePlugin extends Plugin {
@@ -154,6 +159,7 @@ public class UrciStoragePlugin extends Plugin {
             JSObject e = new JSObject();
             e.put("name", f.getName());
             e.put("dir", f.isDirectory());
+            if (!f.isDirectory()) e.put("size", f.length());
             entries.put(e);
         }
         JSObject ret = new JSObject();
@@ -385,6 +391,216 @@ public class UrciStoragePlugin extends Plugin {
             call.resolve(ret);
         } catch (Exception e) {
             call.reject(String.valueOf(e.getMessage()), "IO");
+        }
+    }
+
+    // ---------- bundles (.urci.zip) ----------
+    // JS (bundle.js) decides what goes in and what is accepted; this code streams bytes and re-enforces the
+    // hard limits on the real zip: no absolute or ".." paths, <= 20 MB per entry, <= 2 GB total, <= 20,000 entries.
+    private static final long ENTRY_MAX = 20L * 1024 * 1024;
+    private static final long TOTAL_MAX = 2L * 1024 * 1024 * 1024;
+    private static final int ENTRIES_MAX = 20000;
+
+    @PluginMethod
+    public void exportZip(PluginCall call) {
+        String name = call.getString("name");
+        String manifest = call.getString("manifest");
+        JSArray paths = call.getArray("paths");
+        if (name == null || manifest == null || paths == null || !safeSegment(name) || name.contains("/")) { call.reject("bad args", "BAD_ARGS"); return; }
+        if (root() == null) { call.reject("no folder", "NO_FOLDER"); return; }
+        try {
+            File dir = new File(getContext().getCacheDir(), "exports");
+            if (!dir.exists() && !dir.mkdirs()) throw new Exception("cannot create cache dir");
+            File cache = new File(dir, name);
+            long bytes = 0;
+            try (ZipOutputStream zo = new ZipOutputStream(new FileOutputStream(cache))) {
+                zo.putNextEntry(new ZipEntry("manifest.json"));
+                zo.write(manifest.getBytes(StandardCharsets.UTF_8));
+                zo.closeEntry();
+                byte[] buf = new byte[65536];
+                for (int i = 0; i < paths.length(); i++) {
+                    String rel = paths.getString(i);
+                    DocumentFile f = resolve(rel, false);
+                    if (f == null || !f.isFile()) continue; // a photo listed but missing is simply not packed
+                    zo.putNextEntry(new ZipEntry(rel));
+                    try (InputStream in = getContext().getContentResolver().openInputStream(f.getUri())) {
+                        int n;
+                        while ((n = in.read(buf)) > 0) { zo.write(buf, 0, n); bytes += n; }
+                    }
+                    zo.closeEntry();
+                }
+            }
+            if (!hasSpace(cache.length() * 2L)) { cache.delete(); call.reject("not enough space", "NO_SPACE"); return; }
+            DocumentFile exports = resolve("exports", true);
+            if (exports == null) { call.reject("no folder", "PERMISSION_LOST"); return; }
+            String finalName = name;
+            String base = name.endsWith(".urci.zip") ? name.substring(0, name.length() - 9) : name;
+            for (int i = 2; exports.findFile(finalName) != null; i++) finalName = base + "-" + i + ".urci.zip";
+            DocumentFile out = exports.createFile("application/zip", finalName);
+            if (out == null) throw new Exception("create failed");
+            try (InputStream in = new FileInputStream(cache); OutputStream os = getContext().getContentResolver().openOutputStream(out.getUri(), "wt")) {
+                if (os == null) throw new Exception("no output stream");
+                byte[] buf = new byte[65536];
+                int n;
+                while ((n = in.read(buf)) > 0) os.write(buf, 0, n);
+            }
+            JSObject ret = new JSObject();
+            ret.put("cachePath", cache.getAbsolutePath());
+            ret.put("relPath", "exports/" + out.getName());
+            ret.put("bytes", cache.length());
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject(String.valueOf(e.getMessage()), "IO");
+        }
+    }
+
+    @PluginMethod
+    public void pickBundle(PluginCall call) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] { "application/zip", "application/octet-stream", "application/x-zip-compressed" });
+        getActivity().runOnUiThread(() -> {
+            try {
+                startActivityForResult(call, intent, "onBundlePicked");
+            } catch (Exception e) {
+                call.reject("Picker failed: " + e, "PICKER_ERROR");
+            }
+        });
+    }
+
+    @ActivityCallback
+    private void onBundlePicked(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) { call.reject("cancelled", "CANCELLED"); return; }
+        Uri uri = result.getData().getData();
+        DocumentFile f = DocumentFile.fromSingleUri(getContext(), uri);
+        JSObject ret = new JSObject();
+        ret.put("uri", uri.toString());
+        ret.put("name", f != null ? f.getName() : null);
+        call.resolve(ret);
+    }
+
+    // Pass 1: list every entry with its real inflated size and return the small JSON texts for JS to check.
+    @PluginMethod
+    public void inspectZip(PluginCall call) {
+        String uriStr = call.getString("uri");
+        if (uriStr == null) { call.reject("uri required", "BAD_ARGS"); return; }
+        try (InputStream raw = getContext().getContentResolver().openInputStream(Uri.parse(uriStr)); ZipInputStream zi = new ZipInputStream(raw)) {
+            JSArray entries = new JSArray();
+            JSObject texts = new JSObject();
+            Set<String> seen = new HashSet<>();
+            long total = 0;
+            int count = 0;
+            byte[] buf = new byte[65536];
+            ZipEntry ze;
+            while ((ze = zi.getNextEntry()) != null) {
+                String n = ze.getName();
+                if (ze.isDirectory()) continue;
+                if (++count > ENTRIES_MAX) { call.reject("too many entries", "BUNDLE_INVALID:TOO_MANY"); return; }
+                if (n.startsWith("/") || n.contains("\\") || n.contains("\0") || ("/" + n + "/").contains("/../") || ("/" + n + "/").contains("/./")) { call.reject("unsafe path", "BUNDLE_INVALID:UNSAFE_PATH"); return; }
+                if (!seen.add(n)) { call.reject("duplicate entry", "BUNDLE_INVALID:DUPLICATE"); return; }
+                boolean keep = n.endsWith(".json");
+                ByteArrayOutputStream bo = keep ? new ByteArrayOutputStream() : null;
+                long size = 0;
+                int r;
+                while ((r = zi.read(buf)) > 0) {
+                    size += r;
+                    if (size > ENTRY_MAX) { call.reject("entry too big", "BUNDLE_INVALID:ENTRY_TOO_BIG"); return; }
+                    if (bo != null) bo.write(buf, 0, r);
+                }
+                total += size;
+                if (total > TOTAL_MAX) { call.reject("bundle too big", "BUNDLE_INVALID:TOO_BIG"); return; }
+                JSObject e = new JSObject();
+                e.put("name", n);
+                e.put("size", size);
+                entries.put(e);
+                if (bo != null) texts.put(n, new String(bo.toByteArray(), StandardCharsets.UTF_8));
+            }
+            JSObject ret = new JSObject();
+            ret.put("entries", entries);
+            ret.put("texts", texts);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("not a readable zip: " + e.getMessage(), "BUNDLE_INVALID:NOT_A_BUNDLE");
+        }
+    }
+
+    // Pass 2: stream only the accepted photo entries into the data folder (create-new; an existing name is
+    // skipped as the same file, design SYNC rules). JSON records are applied by JS through the sync rules.
+    @PluginMethod
+    public void importZipPhotos(PluginCall call) {
+        String uriStr = call.getString("uri");
+        JSArray accept = call.getArray("accept");
+        long need = (long) (call.getDouble("bytes", 0.0) * 1.1);
+        if (uriStr == null || accept == null) { call.reject("bad args", "BAD_ARGS"); return; }
+        if (!hasSpace(need)) { call.reject("not enough space", "NO_SPACE"); return; }
+        Set<String> want = new HashSet<>();
+        try { for (int i = 0; i < accept.length(); i++) want.add(accept.getString(i)); } catch (Exception e) { call.reject("bad accept list", "BAD_ARGS"); return; }
+        int copied = 0, existed = 0;
+        try (InputStream raw = getContext().getContentResolver().openInputStream(Uri.parse(uriStr)); ZipInputStream zi = new ZipInputStream(raw)) {
+            byte[] buf = new byte[65536];
+            ZipEntry ze;
+            while ((ze = zi.getNextEntry()) != null) {
+                String n = ze.getName();
+                if (!want.contains(n)) continue;
+                String[] dn = splitPath(n);
+                DocumentFile dir = resolve(dn[0], true);
+                if (dir == null) { call.reject("no folder", "PERMISSION_LOST"); return; }
+                if (dir.findFile(dn[1]) != null) { existed++; continue; }
+                DocumentFile out = dir.createFile("image/jpeg", dn[1]);
+                if (out == null || !dn[1].equals(out.getName())) { if (out != null) out.delete(); throw new Exception("could not create " + n); }
+                long size = 0;
+                try (OutputStream os = getContext().getContentResolver().openOutputStream(out.getUri(), "wt")) {
+                    if (os == null) throw new Exception("no output stream");
+                    int r;
+                    while ((r = zi.read(buf)) > 0) {
+                        size += r;
+                        if (size > ENTRY_MAX) { os.close(); out.delete(); call.reject("entry too big", "BUNDLE_INVALID:ENTRY_TOO_BIG"); return; }
+                        os.write(buf, 0, r);
+                    }
+                }
+                copied++;
+            }
+            JSObject ret = new JSObject();
+            ret.put("copied", copied);
+            ret.put("existed", existed);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject(String.valueOf(e.getMessage()), "IO");
+        }
+    }
+
+    // Open or share a file from <data folder>/exports with another app (PDF viewer, WhatsApp, email, Drive).
+    @PluginMethod
+    public void openExport(PluginCall call) { sendExport(call, false); }
+
+    @PluginMethod
+    public void shareExport(PluginCall call) { sendExport(call, true); }
+
+    private void sendExport(PluginCall call, boolean share) {
+        String rel = call.getString("relPath");
+        if (rel == null || !rel.startsWith("exports/")) { call.reject("bad path", "BAD_ARGS"); return; }
+        DocumentFile f = resolve(rel, false);
+        if (f == null || !f.isFile()) { call.reject("not found", "NOT_FOUND"); return; }
+        String mime = rel.endsWith(".pdf") ? "application/pdf" : "application/zip";
+        Intent intent;
+        if (share) {
+            intent = new Intent(Intent.ACTION_SEND);
+            intent.setType(mime);
+            intent.putExtra(Intent.EXTRA_STREAM, f.getUri());
+        } else {
+            intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(f.getUri(), mime);
+        }
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        Intent chooser = Intent.createChooser(intent, f.getName());
+        chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try {
+            getActivity().startActivity(chooser);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("no app can open this file", "NO_APP");
         }
     }
 

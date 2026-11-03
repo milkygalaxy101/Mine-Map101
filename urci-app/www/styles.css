@@ -192,6 +192,7 @@ main { padding: 0 var(--md); max-width: 720px; margin: 0 auto; }
 .tabs a[aria-current="page"] { color: var(--primary); box-shadow: inset 0 3px 0 var(--primary); }
 body.kbd .tabs { display: none; }
 body.kbd .resultbar { bottom: 0; }
+body:not(.on-inspect) .toast { bottom: calc(var(--tabs) + env(safe-area-inset-bottom) + var(--sm)); }
 body:not(.on-inspect) { padding-bottom: calc(var(--tabs) + env(safe-area-inset-bottom) + var(--md)); }
 
 /* history */
@@ -226,6 +227,21 @@ body:not(.on-inspect) { padding-bottom: calc(var(--tabs) + env(safe-area-inset-b
 /* progress (DESIGN.md: 4 dp navy bar on a rule track) */
 .progress { height: 4px; background: var(--rule); border-radius: 2px; overflow: hidden; margin: var(--sm) 0; }
 .progress-bar { height: 100%; width: 5%; background: var(--primary); transition: width 200ms ease-out; }
+
+/* files tab */
+.action { margin: var(--md) 0; }
+.action .note { margin: var(--xs) 0 0; }
+.export-row { display: flex; align-items: center; gap: var(--sm); min-height: 56px; padding: var(--xs) 0; }
+.export-row .row-title { font-size: 14px; overflow-wrap: anywhere; }
+.export-actions { display: flex; flex: none; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--md); margin: var(--md) 0; }
+.stat { display: flex; flex-direction: column; gap: 2px; padding: var(--sm) 0; border-bottom: 1px solid var(--rule); }
+.field select { min-height: var(--target); width: 100%; padding: 0 var(--sm); border: 1px solid var(--muted); border-radius: var(--r-sm); background: var(--paper); font-size: 18px; }
+.link-banner { color: inherit; text-decoration: none; }
+.conflict { margin: var(--md) 0; padding-bottom: var(--md); border-bottom: 2px solid var(--ink); }
+.conflict-table td { overflow-wrap: anywhere; }
+.choice { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sm); }
+.choice .btn-secondary { padding: 0 var(--xs); }
 
 /* sheets and dialogs */
 .scrim { position: fixed; inset: 0; z-index: 20; background: rgba(20, 23, 26, .45); display: flex; align-items: flex-end; justify-content: center; }

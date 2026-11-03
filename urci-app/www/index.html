@@ -18,9 +18,11 @@
   <nav class="tabs" id="tabs" hidden>
     <a id="tab-inspect" href="#/inspect">Inspeksi</a>
     <a id="tab-history" href="#/history">Riwayat</a>
+    <a id="tab-files" href="#/files">Berkas</a>
   </nav>
   <!-- Order matters: @capacitor/core must load before anything calls Capacitor.registerPlugin (spike lesson). -->
   <script src="vendor/capacitor.js"></script>
+  <script src="vendor/fflate.js"></script>
   <script src="content.js"></script>
   <script src="icons.js"></script>
   <script src="illustrations.js"></script>
@@ -32,6 +34,8 @@
   <script src="history-model.js"></script>
   <script src="inspect.js"></script>
   <script src="history.js"></script>
+  <script src="bundle.js"></script>
+  <script src="files.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
