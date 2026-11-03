@@ -58,6 +58,20 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${msg}`); if (
   check(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), 'no horizontal scroll (trend)');
   await page.screenshot({ path: path.join(__dirname, 'history-trend.png'), fullPage: true });
 
+  // T7: chart as PNG into exports/, same Share dialog as the PDF
+  await page.click('#chart-png');
+  await page.locator('.dialog', { hasText: 'Grafik tersimpan' }).waitFor();
+  const png = await page.evaluate(async () => {
+    const e = window.__urciLastExport;
+    const bmp = await createImageBitmap(e.blob);
+    const fr = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(e.blob); });
+    return { name: e.name, type: e.blob.type, w: bmp.width, h: bmp.height, b64: fr.split(',')[1] };
+  });
+  fs.writeFileSync(path.join(__dirname, 'chart-export.png'), Buffer.from(png.b64, 'base64'));
+  check(/^URCI_tren_I-HR01_S03_\d{8}\.png$/.test(png.name) && png.type === 'image/png' && png.w === 1600 && png.h === 1040, `chart PNG saved: ${png.name} ${png.type} ${png.w}x${png.h}`);
+  check((await page.textContent('.dialog .mono')).startsWith('exports/'), 'saved path shown under exports/');
+  await page.click('.dialog .btn-tertiary');
+
   // drill-down: September round -> units -> SU4 detail
   await page.locator('.data-table a', { hasText: 'Sep' }).click();
   await page.waitForSelector('.rows');

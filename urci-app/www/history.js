@@ -113,6 +113,11 @@
       }
       this.mount.append(head, this.chart(trend));
       if (trend.length < 2) this.mount.append(el('p', { class: 'note', text: t.needTwoRounds }));
+      const title = any ? `${any.header.branch} / ${any.header.section}` : key;
+      const conflictsHere = recs.filter((r) => this.store.conflicts.has(r.uuid)).length;
+      const pngBtn = el('button', { class: 'btn-secondary btn-block', type: 'button', id: 'chart-png', text: t.chartPng,
+        onclick: () => this.saveChartPng(key, title, trend, conflictsHere > 0, pngBtn) });
+      this.mount.append(pngBtn);
       // flags
       const flags = [];
       for (const r of trend) {
@@ -167,6 +172,36 @@
         if (r.units.some((u) => u.outlier)) s.append(svg('path', { d: `M${px + 9} ${py - 3} l5 9 h-10 z`, fill: '#B42318' }));
       });
       return el('figure', { class: 'chart-fig' }, s, el('figcaption', { class: 'note', text: t.chartLegend }));
+    }
+
+    // T7: the trend chart as a PNG in <data folder>/exports, then the same Share dialog as the PDF.
+    async saveChartPng(key, title, trend, conflict, btn) {
+      const t = this.t();
+      if (this.pngBusy) return;
+      this.pngBusy = true;
+      if (btn) btn.disabled = true;
+      try {
+        try { await Promise.all([document.fonts.load('600 26px Barlow'), document.fonts.load('400 12px "IBM Plex Mono"')]); } catch (e) { /* fallback font */ }
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const canvas = UrciChartPng.render(document.createElement('canvas'), {
+          trend, bandRanges: this.engine.bandRanges(this.lowers()), bandNames: t.bands, num: (v) => this.num(v),
+          title: `${t.chartPngTitle} · ${title}`,
+          subtitle: `${t.chartPngSub} · ${t.pdfGenerated}: ${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`,
+          legend: t.chartLegend, footnote: t.chartPngSource, warning: conflict ? t.conflictUnresolved : null,
+        });
+        const blob = await UrciChartPng.toBlob(canvas);
+        const name = `URCI_tren_${this.S.sanitizeToken(title.split(' / ')[0] || key)}_${this.S.sanitizeToken(title.split(' / ')[1] || '')}_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}.png`;
+        const saved = await this.platform.media.saveExport(blob, name, 'image/png');
+        UrciLog.add('export-png', { rounds: trend.length });
+        this.exportDone(saved, t.chartSaved, t.chartPngTitle, []);
+      } catch (e) {
+        const code = e && e.code;
+        this.alert(t.chartFailed, code === 'NO_SPACE' ? t.noSpace : code === 'NO_FOLDER' || code === 'PERMISSION_LOST' ? t.folderLost : String((e && (e.code || e.message)) || e));
+      } finally {
+        this.pngBusy = false;
+        if (btn) btn.disabled = false;
+      }
     }
 
     // ---------- round -> units ----------
@@ -290,14 +325,16 @@
       }
     }
 
-    pdfDone(saved, missing) {
+    pdfDone(saved, missing) { const t = this.t(); this.exportDone(saved, t.pdfSaved, t.pdfTitle, missing); }
+
+    exportDone(saved, savedMsg, shareTitle, missing) {
       const t = this.t();
       const media = this.platform.media;
       const close = () => scrim.remove();
       const actions = el('div', { class: 'dialog-actions' }, el('button', { class: 'btn-tertiary', type: 'button', text: t.close, onclick: close }));
-      if (media.canShare) actions.append(el('button', { class: 'btn-primary', type: 'button', id: 'share-pdf', text: t.share, onclick: async () => { try { await media.share(saved, t.pdfTitle); } catch (e) { /* user closed the share sheet */ } close(); } }));
-      const scrim = el('div', { class: 'scrim center' }, el('div', { class: 'dialog', role: 'dialog', 'aria-label': t.pdfSaved },
-        el('h2', { text: t.pdfSaved }), el('p', { class: 'mono', text: saved.relPath }),
+      if (media.canShare) actions.append(el('button', { class: 'btn-primary', type: 'button', id: 'share-pdf', text: t.share, onclick: async () => { try { await media.share(saved, shareTitle); } catch (e) { /* user closed the share sheet */ } close(); } }));
+      const scrim = el('div', { class: 'scrim center' }, el('div', { class: 'dialog', role: 'dialog', 'aria-label': savedMsg },
+        el('h2', { text: savedMsg }), el('p', { class: 'mono', text: saved.relPath }),
         missing.length ? el('p', { class: 'err-text', text: `${t.pdfMissingPhotos}: ${missing.join(', ')}` }) : '', actions));
       document.body.append(scrim);
       (actions.lastChild).focus();
