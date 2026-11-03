@@ -177,6 +177,27 @@
       if (!(r.tab === 'manual' && r.anchor)) window.scrollTo(0, 0);
     }
     window.addEventListener('hashchange', route);
+
+    // Android back button (MainActivity asks this first). Closes the top sheet or dialog the safe way and returns
+    // true; returns false when nothing is open, and the phone then goes to the previous panel, or puts the app in
+    // the background from the first screen. Back never presses a destructive button: a dialog without a plain
+    // Batal/Tutup (Cancel/Close) is left open, and a long export keeps running.
+    window.__urciBack = () => {
+      const scrims = document.querySelectorAll('.scrim');
+      const top = scrims[scrims.length - 1];
+      if (!top) return false;
+      if (top.querySelector('.sheet') && top.querySelector('.sheet').closest('.scrim') === top && !top.querySelector('.dialog')) {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); // Inspect sheets close on Escape
+        if (top.isConnected) {
+          const safe = [...top.querySelectorAll('button')].find((b) => [content.id.cancel, content.id.close, content.en.cancel, content.en.close].includes(b.textContent.trim()));
+          if (safe) safe.click();
+        }
+        return true;
+      }
+      const safe = [...top.querySelectorAll('button')].find((b) => [content.id.cancel, content.id.close, content.en.cancel, content.en.close].includes(b.textContent.trim()));
+      if (safe) safe.click();
+      return true;
+    };
     // tabs hide while the keyboard is up (an input has focus), so the result bar sits right above it
     document.addEventListener('focusin', (e) => { if (e.target.matches('input, textarea')) document.body.classList.add('kbd'); });
     document.addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !document.activeElement.matches('input, textarea')) document.body.classList.remove('kbd'); }, 50));
