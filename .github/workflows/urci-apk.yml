@@ -32,6 +32,19 @@ jobs:
       - name: Build debug APK
         working-directory: urci-app/android
         run: ./gradlew assembleDebug --no-daemon
+      - name: Rehearse the signed release build (throwaway key, not published)
+        working-directory: urci-app/android
+        run: |
+          keytool -genkeypair -keystore "$RUNNER_TEMP/rehearsal.jks" -storetype PKCS12 -alias rehearsal -keyalg RSA -keysize 2048 \
+            -validity 1 -storepass rehearsal -keypass rehearsal -dname "CN=rehearsal" >/dev/null
+          URCI_KEYSTORE_FILE="$RUNNER_TEMP/rehearsal.jks" URCI_KEYSTORE_PASSWORD=rehearsal URCI_KEY_ALIAS=rehearsal URCI_KEY_PASSWORD=rehearsal \
+            ./gradlew assembleRelease --no-daemon
+          APK=app/build/outputs/apk/release/app-release.apk
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --print-certs "$APK" | grep -q 'CN=rehearsal'
+          if "$BT/aapt" dump badging "$APK" | grep -q application-debuggable; then echo "::error::release APK is debuggable"; exit 1; fi
+          "$BT/aapt" dump badging "$APK" | grep -m1 '^package:'
+          rm -f "$RUNNER_TEMP/rehearsal.jks"
       - uses: actions/upload-artifact@v4
         with:
           name: urci-field-debug-apk

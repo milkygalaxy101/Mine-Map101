@@ -1,0 +1,116 @@
+name: URCI Field release
+# Tag urci-v<versionName> (from urci-app/release.json) -> version gate -> tests -> signed APK -> signature check ->
+# GitHub Release with the APK and its SHA-256 (design T9 / DEP-1). The crew sideloads the APK from the release page.
+#
+# Repository secrets (Settings > Secrets and variables > Actions):
+#   URCI_KEYSTORE_BASE64   the release keystore (.jks), base64-encoded
+#   URCI_KEYSTORE_PASSWORD keystore password
+#   URCI_KEY_ALIAS         key alias
+#   URCI_KEY_PASSWORD      key password
+# Once the first release is out, put its signing certificate SHA-256 into release.json "signingCertSha256": every
+# later release must be signed with that same key, or Android refuses the update.
+on:
+  push:
+    tags: ['urci-v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: urci-app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the versionCode gate reads release.json at the previous urci-v* tag
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: urci-app/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Version gate (tag = versionName, versionCode increased)
+        run: node scripts/release-check.mjs "$GITHUB_REF_NAME"
+      - name: Test tools
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
+          python3 -m pip install --quiet openpyxl==3.1.5
+      - name: Unit tests
+        run: npm test
+      - name: UI tests
+        run: |
+          npm i --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+          npm run ui-test
+      - name: Vendor and sync
+        run: |
+          node scripts/vendor.mjs
+          npx cap sync android
+      - name: Keystore
+        env:
+          URCI_KEYSTORE_BASE64: ${{ secrets.URCI_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$URCI_KEYSTORE_BASE64" ]; then echo "::error::Repository secret URCI_KEYSTORE_BASE64 is missing; see the header of urci-release.yml"; exit 1; fi
+          echo "$URCI_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/urci-release.jks"
+      - name: Build signed release APK
+        working-directory: urci-app/android
+        env:
+          URCI_KEYSTORE_FILE: ${{ runner.temp }}/urci-release.jks
+          URCI_KEYSTORE_PASSWORD: ${{ secrets.URCI_KEYSTORE_PASSWORD }}
+          URCI_KEY_ALIAS: ${{ secrets.URCI_KEY_ALIAS }}
+          URCI_KEY_PASSWORD: ${{ secrets.URCI_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon
+      - name: Verify signature, name the APK, SHA-256
+        id: apk
+        run: |
+          rm -f "$RUNNER_TEMP/urci-release.jks"
+          SRC=android/app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "$SRC" ]; then echo "::error::no signed app-release.apk (signing not configured?)"; ls android/app/build/outputs/apk/release/; exit 1; fi
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --verbose --print-certs "$SRC" | tee "$RUNNER_TEMP/signer.txt"
+          CERT=$(grep -m1 'certificate SHA-256 digest' "$RUNNER_TEMP/signer.txt" | sed 's/.*: //')
+          PINNED=$(node -p "require('./release.json').signingCertSha256 || ''")
+          if [ -n "$PINNED" ] && [ "$PINNED" != "$CERT" ]; then echo "::error::signed with certificate $CERT but release.json pins $PINNED (updates would not install)"; exit 1; fi
+          if "$BT/aapt" dump badging "$SRC" | grep -q "application-debuggable"; then echo "::error::release APK is debuggable"; exit 1; fi
+          V=$(node -p "require('./release.json').versionName")
+          C=$(node -p "require('./release.json').versionCode")
+          OUT="URCI-Field-$V.apk"
+          cp "$SRC" "$OUT"
+          sha256sum "$OUT" > "$OUT.sha256"
+          echo "out=$OUT" >> "$GITHUB_OUTPUT"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "code=$C" >> "$GITHUB_OUTPUT"
+          echo "cert=$CERT" >> "$GITHUB_OUTPUT"
+          echo "sha=$(cut -d' ' -f1 "$OUT.sha256")" >> "$GITHUB_OUTPUT"
+          [ -z "$PINNED" ] && echo "::notice::First signed release: add \"signingCertSha256\": \"$CERT\" to urci-app/release.json"
+          true
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUT: ${{ steps.apk.outputs.out }}
+          V: ${{ steps.apk.outputs.version }}
+          C: ${{ steps.apk.outputs.code }}
+          CERT: ${{ steps.apk.outputs.cert }}
+          SHA: ${{ steps.apk.outputs.sha }}
+        run: |
+          cat > "$RUNNER_TEMP/notes.md" <<EOF
+          URCI Field $V (versionCode $C)
+
+          **Pasang / Install**
+          1. Unduh \`$OUT\` di HP. / Download \`$OUT\` on the phone.
+          2. Izinkan "Instal aplikasi tak dikenal" untuk browser atau pengelola file bila diminta. / Allow "Install unknown apps" for the browser or file manager when asked.
+          3. Buka aplikasi, Pengaturan, ketuk nomor versi 5 kali: Uji mandiri harus LULUS. / Open the app, Settings, tap the version 5 times: the self-test must PASS.
+
+          Pembaruan memakai kunci tanda tangan yang sama, jadi data dan pengaturan tetap ada. / Updates use the same signing key, so data and settings stay.
+
+          **SHA-256 (APK)**: \`$SHA\`
+          **Signing certificate SHA-256**: \`$CERT\`
+          EOF
+          gh release create "$GITHUB_REF_NAME" "$OUT" "$OUT.sha256" --title "URCI Field $V" --notes-file "$RUNNER_TEMP/notes.md"

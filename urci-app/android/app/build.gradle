@@ -1,5 +1,13 @@
 apply plugin: 'com.android.application'
 
+// One version source (urci-app/release.json), also checked against www/version.js by test/release.test.js.
+// The release workflow fails if versionCode did not increase since the previous urci-v* tag (DEP-1).
+def urciRelease = new groovy.json.JsonSlurper().parse(file('../../release.json'))
+
+// Release signing from environment variables only (CI secrets); nothing secret is in the repository.
+// Without them, assembleRelease still builds, but unsigned, and the release workflow refuses to publish it.
+def ks = System.getenv('URCI_KEYSTORE_FILE')
+
 android {
     namespace = "id.urcifield.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +15,8 @@ android {
         applicationId "id.urcifield.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode urciRelease.versionCode as int
+        versionName urciRelease.versionName as String
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +24,19 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv('URCI_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('URCI_KEY_ALIAS')
+                keyPassword System.getenv('URCI_KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (ks) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

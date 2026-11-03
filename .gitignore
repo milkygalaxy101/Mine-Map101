@@ -1,0 +1,4 @@
+
+# release signing keys never go into git
+*.jks
+*.keystore
