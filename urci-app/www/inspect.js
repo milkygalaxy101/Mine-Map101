@@ -34,8 +34,9 @@
   }
 
   class InspectScreen {
-    constructor({ mount, engine, curves, storeApi, store, content, getLang, setLang, kv, local, testMode }) {
-      Object.assign(this, { mount, engine, curves, S: storeApi, store, content, getLang, setLang, kv, local, testMode });
+    constructor({ mount, engine, curves, storeApi, store, content, getLang, setLang, kv, local, testMode, platform, newId, onFolderLost }) {
+      Object.assign(this, { mount, engine, curves, S: storeApi, store, content, getLang, setLang, kv, local, testMode, platform, newId, onFolderLost });
+      this.busy = new Set(); // cell keys with a photo being processed
       this.state = this.blank();
       this.errors = {};
       this.expanded = true;
@@ -59,12 +60,17 @@
     }
 
     blank() {
-      return { header: { branch: '', section: '', sampleUnit: '', date: today(), sampleArea: '', inspector: '' }, qty: {}, dust: null };
+      // photos: { 'code-sev': [{ name, path (draft, app-private), sha256, takenAt, gps }] } - private until Save (R6)
+      return { header: { branch: '', section: '', sampleUnit: '', date: today(), sampleArea: '', inspector: '' }, qty: {}, dust: null, photos: {} };
     }
 
     async start() {
       this.pickers = (await this.kv.get('pickers')) || { branch: [], section: [] };
       this.tipSeen = !!(await this.kv.get('tipSeen'));
+      if (this.platform) {
+        this.platform.geo.onChange(() => this.renderGpsChip());
+        this.platform.geo.start(); // warm up GPS when Inspect opens
+      }
       this.render();
       const raw = this.local.getItem(DRAFT_KEY);
       if (raw) {
@@ -73,7 +79,7 @@
         if (draft && draft.header) {
           const t = this.t();
           const keep = await this.confirm({ title: t.draftTitle, body: t.draftBody, ok: t.draftContinue, cancel: t.draftDiscard, destructiveCancel: true });
-          if (keep) { this.state = draft; this.expanded = !this.hasEntries(); } else this.local.removeItem(DRAFT_KEY);
+          if (keep) { this.state = { photos: {}, ...draft }; this.expanded = !this.hasEntries(); } else { await this.discardDraftPhotos(draft); this.local.removeItem(DRAFT_KEY); }
           this.render();
         }
       }
@@ -126,11 +132,13 @@
       const t = this.t();
       this.mount.replaceChildren();
       if (this.testMode) this.mount.append(el('div', { class: 'banner info', role: 'note' }, icon('info', ''), el('p', { text: t.testStorage })));
+      if (this.platform) this.mount.append(el('div', { class: 'status-row', id: 'gps-row' }));
       if (!this.tipSeen) this.mount.append(this.renderTip());
       this.bodyBox = el('div');
       this.mount.append(this.renderHeader(), this.bodyBox);
       this.renderBody();
       this.renderBar();
+      this.renderGpsChip();
     }
 
     // One-time "how to fill in" card (ST-1 tip), reopened from the Bantuan button.
@@ -229,6 +237,23 @@
         closed ? icon('lock', '', 16) : null, label, closed ? ` · ${t.closed}` : ''));
     }
 
+    // GPS status chip (E5): "GPS ±4 m" / "Mencari GPS…" / amber "GPS mati".
+    renderGpsChip() {
+      if (!this.platform) return;
+      const row = document.getElementById('gps-row');
+      if (!row) return;
+      let chip = document.getElementById('gps-chip');
+      if (!chip) {
+        chip = el('span', { id: 'gps-chip', class: 'chip mono gps', role: 'status' });
+        row.append(chip);
+      }
+      const t = this.t();
+      const g = this.platform.geo.state;
+      chip.className = 'chip mono gps' + (g.status === 'off' || g.status === 'denied' ? ' warn' : '');
+      chip.textContent = g.status === 'ok' && g.fix ? t.gpsOk.replace('{n}', Math.max(1, Math.round(g.fix.acc)))
+        : g.status === 'denied' ? t.gpsDenied : g.status === 'off' ? t.gpsOff : t.gpsSearching;
+    }
+
     renderGrid(disabled) {
       const t = this.t();
       const grid = el('div', { class: 'grid', role: 'group', 'aria-label': t.block8 });
@@ -260,6 +285,10 @@
             onclick: () => this.openKeypad(code, sev),
           }, text);
           if (f.includes('offChartHigh')) cell.append(el('span', { class: 'flag' }, icon('warning', t.offChart, 14)));
+          // corner photo badge: status only, never on the value's line (DESIGN.md grid cell)
+          const n = (this.state.photos[key] || []).length;
+          if (this.busy.has(key)) cell.append(el('span', { class: 'photo-badge busy', 'aria-label': t.photoBusy }, '…'));
+          else if (n) cell.append(el('span', { class: 'photo-badge', 'aria-label': `${n} foto` }, icon('photo_camera', '', 14), String(n)));
           row.append(cell);
         }
         grid.append(row);
@@ -315,10 +344,13 @@
         this.moreSection(code, sev),
         el('label', { class: 'ask', for: 'qty', text: t.ask[d.unit] }),
         el('div', { class: 'qty-input' }, input, el('span', { class: 'unit', text: unit })), err,
-        this.state.qty[key] !== undefined ? el('button', { class: 'btn-secondary btn-block', type: 'button', disabled: true, 'aria-describedby': 'photo-note' }, icon('photo_camera', ''), ' ', t.takePhoto) : null,
-        this.state.qty[key] !== undefined ? el('p', { class: 'note', id: 'photo-note', text: t.photoLater }) : null,
+        this.state.qty[key] !== undefined ? this.photoSection(code, sev, () => close()) : null,
         el('div', { class: 'sheet-actions' },
-          el('button', { class: 'btn-tertiary', type: 'button', text: t.clearValue, onclick: () => { delete this.state.qty[key]; close(); this.afterEntry(); } }),
+          el('button', { class: 'btn-tertiary', type: 'button', text: t.clearValue, onclick: async () => {
+            const n = (this.state.photos[key] || []).length;
+            if (n && !(await this.confirm({ title: t.clearValue, body: t.clearWithPhotos.replace('{n}', n), ok: t.deletePhoto, cancel: t.cancel, destructiveOk: true }))) return;
+            await this.removePhotos(key);
+            delete this.state.qty[key]; close(); this.afterEntry(); } }),
           el('button', { class: 'btn-primary', type: 'button', text: t.done, onclick: () => commit() })));
       const commit = () => {
         const v = parseNum(input.value);
@@ -391,6 +423,86 @@
         d.numbers ? null : el('p', { class: 'note', text: t.noNumbers }),
         el('p', { class: 'note', text: `${d.fig} · ${t.helpSource}` }),
         el('div', { class: 'sheet-actions' }, el('button', { class: 'btn-primary', type: 'button', text: t.close, onclick: () => close() })));
+    }
+
+    // ---------- photos (R6 draft-private, R7 downscale, HASH-1 fingerprint) ----------
+    photoSection(code, sev, closeSheet) {
+      const t = this.t();
+      const key = `${code}-${sev}`;
+      const list = this.state.photos[key] || [];
+      const ready = this.headerValid(false);
+      const wrap = el('div', { class: 'photos' });
+      if (list.length) {
+        wrap.append(el('div', { class: 'label-row' }, el('span', { class: 'note', text: `${t.photosOfCell} (${list.length})` })));
+        const strip = el('div', { class: 'thumbs' });
+        for (const p of list) {
+          const url = this.platform.media.draftUrl(p.path);
+          strip.append(el('div', { class: 'thumb' },
+            url ? el('img', { src: url, alt: p.name }) : el('span', { class: 'note', text: p.name }),
+            el('button', { class: 'thumb-del', type: 'button', 'aria-label': `${t.deletePhoto} ${p.name}`, onclick: async () => {
+              if (!(await this.confirm({ title: t.deletePhoto, body: t.deletePhotoBody, ok: t.deletePhoto, cancel: t.cancel, destructiveOk: true }))) return;
+              await this.platform.media.deleteDraft(p.path);
+              this.state.photos[key] = (this.state.photos[key] || []).filter((x) => x !== p);
+              if (!this.state.photos[key].length) delete this.state.photos[key];
+              this.saveDraft(); closeSheet(); this.render(); this.openKeypad(code, sev);
+            } }, icon('close', ''))));
+        }
+        wrap.append(strip);
+      }
+      wrap.append(el('button', { class: 'btn-secondary btn-block', type: 'button', id: 'take-photo', disabled: !ready || this.busy.has(key),
+        onclick: () => { closeSheet(); this.takePhoto(code, sev); } }, icon('photo_camera', ''), ' ', this.busy.has(key) ? t.photoBusy : t.takePhoto));
+      if (!ready) wrap.append(el('p', { class: 'note', text: t.photoNeedsHeader }));
+      return wrap;
+    }
+
+    async takePhoto(code, sev) {
+      const t = this.t();
+      const key = `${code}-${sev}`;
+      const media = this.platform.media;
+      let shot;
+      try {
+        shot = await media.capture();
+      } catch (e) {
+        const msg = String((e && (e.code || e.message)) || e);
+        if (/CAMR-0003|permission|denied/i.test(msg)) this.notice(t.cameraDenied, t.cameraDeniedBody);
+        else if (!/cancel/i.test(msg)) this.notice(t.photoFailed, msg);
+        return;
+      }
+      if (!shot) return; // user cancelled
+      this.busy.add(key);
+      this.render(); // back to the grid at once; the cell shows "…" while the stamp is made (ST-4)
+      try {
+        const at = Date.now();
+        const fix = await this.platform.geo.fixForStamp();
+        const h = this.state.header;
+        const d = t.distress[code];
+        const lines = UrciStamp.stampLines({ code, shortName: d.short, sevName: t.sevName[sev], at, branch: h.branch.trim().toUpperCase(),
+          section: h.section.trim().toUpperCase(), sampleUnit: h.sampleUnit, fix, gpsNa: t.gpsNa });
+        const blob = await UrciStamp.stampPhoto(shot.url, lines);
+        const sha256 = await UrciPlatform.sha256Hex(blob);
+        const path = await media.saveDraft(blob);
+        const p = { name: UrciStamp.photoName(code, sev, at, this.newId()), path, sha256, takenAt: new Date(at).toISOString(),
+          gps: fix ? { lat: Math.round(fix.lat * 1e6) / 1e6, lon: Math.round(fix.lon * 1e6) / 1e6, acc: Math.round(fix.acc) } : null };
+        (this.state.photos[key] = this.state.photos[key] || []).push(p);
+        this.saveDraft();
+      } catch (e) {
+        const code2 = e && e.code;
+        this.notice(t.photoFailed, code2 === 'NO_SPACE' ? t.noSpace : String((e && (e.code || e.message)) || e));
+      } finally {
+        this.busy.delete(key);
+        this.render();
+      }
+    }
+
+    async removePhotos(key) {
+      for (const p of this.state.photos[key] || []) await this.platform.media.deleteDraft(p.path);
+      delete this.state.photos[key];
+      this.saveDraft();
+    }
+
+    async discardDraftPhotos(draft) {
+      if (!this.platform || !draft || !draft.photos) return;
+      for (const p of Object.values(draft.photos).flat()) await this.platform.media.deleteDraft(p.path);
     }
 
     // ---------- calc sheet (UJ-3, H2) ----------
@@ -473,12 +585,23 @@
         sampleArea: parseNum(h.sampleArea),
         ...(h.inspector.trim() ? { inspector: h.inspector.trim() } : {}),
       };
-      const entries = this.entries().map((e) => (e.code === '84' ? { code: e.code, sev: e.sev } : e));
+      const photoMeta = (key) => (this.state.photos[key] || []).map((p) => ({ name: p.name, sha256: p.sha256, takenAt: p.takenAt, ...(p.gps ? { gps: p.gps } : {}) }));
+      const entries = this.entries().map((e) => {
+        const key = `${e.code}-${e.sev}`;
+        const base = e.code === '84' ? { code: e.code, sev: e.sev } : e;
+        const ph = photoMeta(key);
+        return ph.length ? { ...base, photos: ph } : base;
+      });
+      const drafts = Object.values(this.state.photos).flat();
       const r = this.compute();
       this.saving = true;
       this.renderBar();
       try {
-        await this.store.saveInspection({ header, entries, result: { urciRaw: r.urciRaw, urci: r.urci, tdv: r.tdv, q: r.q } });
+        await this.store.saveInspection({ header, entries, result: { urciRaw: r.urciRaw, urci: r.urci, tdv: r.tdv, q: r.q } }, undefined, {
+          // photos go into the inspection folder before the record that lists them (create-new, never overwrite)
+          beforeWrite: async (rec) => { for (const p of drafts) await this.platform.media.copyIn(p.path, `inspections/${rec.folder}/${p.name}`); },
+        });
+        for (const p of drafts) await this.platform.media.deleteDraft(p.path);
         await this.remember('branch', header.branch);
         await this.remember('section', header.section);
         this.local.removeItem(DRAFT_KEY);
@@ -488,8 +611,11 @@
         this.lastUrci = null;
         this.toast(t.saved);
       } catch (e) {
-        if (e && e.code === 'ROUND_CLOSED') this.toast(t.roundClosed);
-        else this.notice(t.save, String((e && (e.code || e.message)) || e));
+        const code = e && e.code;
+        if (code === 'ROUND_CLOSED') this.toast(t.roundClosed);
+        else if (code === 'NO_SPACE') this.notice(t.saveFailed, t.noSpace);
+        else if ((code === 'NO_FOLDER' || code === 'PERMISSION_LOST') && this.onFolderLost) { this.notice(t.saveFailed, t.folderLost); this.onFolderLost(); }
+        else this.notice(t.saveFailed, String((e && (e.code || e.message)) || e)); // the draft is kept either way
       } finally {
         this.saving = false;
         this.render();
@@ -540,10 +666,10 @@
     }
 
     // Confirm (primary + tertiary) or destructive cancel (red explicit verb). Default focus = safe choice.
-    confirm({ title, body, ok, cancel, destructiveCancel = false }) {
+    confirm({ title, body, ok, cancel, destructiveCancel = false, destructiveOk = false }) {
       return new Promise((resolve) => {
         const done = (v) => { scrim.remove(); resolve(v); };
-        const okBtn = el('button', { class: 'btn-primary', type: 'button', text: ok, onclick: () => done(true) });
+        const okBtn = el('button', { class: 'btn-primary' + (destructiveOk ? ' danger' : ''), type: 'button', text: ok, onclick: () => done(true) });
         const cancelBtn = destructiveCancel
           ? el('button', { class: 'btn-primary danger', type: 'button', text: cancel, onclick: () => done(false) })
           : el('button', { class: 'btn-tertiary', type: 'button', text: cancel, onclick: () => done(false) });
@@ -551,7 +677,7 @@
           el('h2', { text: title }), el('p', { text: body }), el('div', { class: 'dialog-actions' }, cancelBtn, okBtn));
         const scrim = el('div', { class: 'scrim center' }, box);
         document.body.append(scrim);
-        okBtn.focus(); // keeping the draft is the safe choice
+        (destructiveOk ? cancelBtn : okBtn).focus(); // default focus is always the safe choice
       });
     }
 

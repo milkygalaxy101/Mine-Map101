@@ -23,7 +23,8 @@ const failures = [];
 const check = (ok, msg) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${msg}`); if (!ok) failures.push(msg); };
 
 async function run(browser, base, scale) {
-  const ctx = await browser.newContext({ viewport: { width: 360, height: 760 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const ctx = await browser.newContext({ viewport: { width: 360, height: 760 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+    geolocation: { latitude: -2.98712, longitude: 115.42301, accuracy: 4 }, permissions: ['geolocation'] });
   const page = await ctx.newPage();
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -114,6 +115,21 @@ async function run(browser, base, scale) {
   }
   await cell('81', 1, '30,5');
   check(await page.locator('.summary').count() === 1, `${tag} header collapses to the summary line after the first fill`);
+  // photo on a filled box (R6/R7/HASH-1): stamp, badge, then saved with the record
+  {
+    check((await page.textContent('#gps-chip')).includes('±4 m'), `${tag} GPS chip shows the fix accuracy`);
+    const r81 = page.locator('.grid-row').filter({ has: page.locator('.code', { hasText: '81' }) });
+    await r81.locator('button.cell').nth(1).click();
+    const take = page.locator('#take-photo');
+    check(await take.isEnabled(), `${tag} "Ambil foto" is enabled once the location is filled in`);
+    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), take.click()]);
+    await chooser.setFiles(path.join(__dirname, 'fixture-road.jpg'));
+    await page.waitForFunction(() => { const b = [...document.querySelectorAll('.photo-badge')]; return b.length && !b.some((x) => x.classList.contains('busy')); }, null, { timeout: 15000 });
+    check((await r81.locator('button.cell').nth(1).locator('.photo-badge').textContent()).trim() === '1', `${tag} cell shows a photo count badge`);
+    await r81.locator('button.cell').nth(1).click();
+    check(await page.locator('.sheet .thumb img').count() === 1, `${tag} keypad shows the photo thumbnail`);
+    await page.click('.sheet .sheet-actions .btn-primary');
+  }
   await cell('82', 2, '61');
   await page.locator('.grid-row').filter({ has: page.locator('.code', { hasText: '84' }) }).locator('.dust-chip').nth(0).click();
   await cell('86', 1, '45.5');
@@ -139,6 +155,18 @@ async function run(browser, base, scale) {
   const live = await page.evaluate(() => window.__urci.store.live().map((r) => ({ b: r.header.branch, s: r.header.section, n: r.entries.length, u: r.result.urci, rid: r.roundId })));
   check(live.length === 1 && live[0].b === 'I-HR01' && live[0].n === 5 && live[0].u === 23, `${tag} record saved (uppercased header, 5 entries, URCI 23): ${JSON.stringify(live)}`);
   check((await page.textContent('#urci-num')).trim() === '—', `${tag} form returns empty after Save`);
+  {
+    const ph = await page.evaluate(() => {
+      const r = window.__urci.store.live()[0];
+      const e = r.entries.find((x) => x.code === '81' && x.sev === 'M');
+      const p = e && e.photos && e.photos[0];
+      return p ? { ...p, file: localStorage.getItem(`urci-fs:inspections/${r.folder}/${p.name}`) !== null } : null;
+    });
+    check(ph && /^81-M-\d{8}-\d{6}-[0-9a-f]{8}\.jpg$/.test(ph.name), `${tag} saved photo has a TM-style name: ${ph && ph.name}`);
+    check(ph && /^[0-9a-f]{64}$/.test(ph.sha256), `${tag} saved photo has a SHA-256 fingerprint`);
+    check(ph && ph.gps && Math.abs(ph.gps.lat + 2.98712) < 1e-4 && ph.gps.acc === 4, `${tag} saved photo carries the GPS fix`);
+    check(ph && ph.file, `${tag} photo file is in the inspection folder`);
+  }
 
   // language
   await page.click('#lang');

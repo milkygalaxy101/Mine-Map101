@@ -110,6 +110,25 @@ main { padding: 0 var(--md); max-width: 720px; margin: 0 auto; }
 .pothole-table td { font: 600 16px Barlow; color: var(--muted); }
 .pothole-table td.mark { background: var(--primary); color: var(--on-primary); }
 
+/* GPS status + photos */
+.status-row { display: flex; justify-content: flex-end; margin-top: var(--sm); min-height: 28px; }
+.chip.gps { font: 400 14px/1.6 'IBM Plex Mono', monospace; letter-spacing: 0; }
+.chip.gps.warn { border-color: var(--warning); color: var(--warning); }
+.photo-badge { position: absolute; top: 1px; right: 2px; display: inline-flex; align-items: center; gap: 1px; font: 600 11px/1 Barlow; color: var(--primary); }
+.photo-badge .icon { width: 14px; height: 14px; }
+.photo-badge.busy { color: var(--muted); font-size: 14px; }
+.photos { margin: var(--sm) 0; }
+.thumbs { display: flex; flex-wrap: wrap; gap: var(--sm); margin: var(--xs) 0 var(--sm); }
+.thumb { position: relative; width: 88px; height: 88px; border: 1px solid var(--rule); border-radius: var(--r-sm); overflow: hidden; background: var(--tint); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb-del { position: absolute; top: 0; right: 0; width: 40px; height: 40px; border: 0; border-radius: 0 0 0 var(--r-sm); background: rgba(20,23,26,.75); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.btn-secondary.btn-block { display: flex; align-items: center; justify-content: center; gap: var(--xs); }
+
+/* first run */
+.welcome { padding: var(--lg) 0; }
+.welcome h2 { font: 600 24px/1.2 Barlow; margin: 0 0 var(--md); }
+.welcome p { margin: 0 0 var(--md); }
+
 /* quantity grid */
 .grid { display: flex; flex-direction: column; }
 .grid-head, .grid-row { display: grid; grid-template-columns: minmax(var(--label), 1fr) repeat(3, var(--cell)); column-gap: var(--xs); align-items: center; }

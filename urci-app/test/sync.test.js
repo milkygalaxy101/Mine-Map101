@@ -313,3 +313,18 @@ test('schema validation: caps, photo names, duplicates, newer schema, folder/uui
   assert.match(bad({ vv: {} }), /vv: invalid/);
   assert.match(bad({ header: { ...base.header, inspector: 'x'.repeat(61) } }), /inspector: longer than 60/);
 });
+
+test('saveInspection beforeWrite runs before the record is written; a failure writes nothing', async () => {
+  const A = await phone('a');
+  const order = [];
+  const photo = '83-M-20261001-101107-9f3e2c11.jpg';
+  const rec = await A.st.saveInspection(body(), undefined, {
+    beforeWrite: async (r) => { order.push('photos'); A.fs.put(`inspections/${r.folder}/${photo}`); assert.ok(!A.fs.has(`inspections/${r.folder}/inspection.json`)); },
+  });
+  order.push('saved');
+  assert.deepEqual(order, ['photos', 'saved']);
+  assert.ok(A.fs.has(`inspections/${rec.folder}/${photo}`), 'photo kept: it is listed in the record');
+  const before = A.st.records.size;
+  await assert.rejects(A.st.saveInspection(body({ header: { sampleUnit: 7 } }), undefined, { beforeWrite: async () => { throw Object.assign(new Error('copy failed'), { code: 'NO_SPACE' }); } }), { code: 'NO_SPACE' });
+  assert.equal(A.st.records.size, before);
+});

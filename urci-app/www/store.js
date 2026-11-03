@@ -440,7 +440,9 @@
 
     // ---- local edits ----
     // body: { header, entries, result? }  (uuid/folder/vv/roundId are managed here)
-    async saveInspection(body, uuid) {
+    // opts.beforeWrite(rec): runs after validation and before inspection.json is written, so photos are in
+    // the folder before any record points at them. If it throws, nothing is written.
+    async saveInspection(body, uuid, opts = {}) {
       const prev = uuid ? this.records.get(uuid) : null;
       if (uuid && !prev) throw new StoreError('NOT_FOUND', uuid);
       if (prev && prev.deletedAt) throw new StoreError('DELETED', uuid);
@@ -464,6 +466,7 @@
       };
       const v = validateInspection(rec);
       if (!v.ok) throw new StoreError('INVALID', v.errors.join('; '));
+      if (opts.beforeWrite) await opts.beforeWrite(rec);
       const g = await this._beginWrite();
       await this.fs.writeTextSafe(`${this._dir(rec)}/inspection.json`, JSON.stringify(rec));
       this.records.set(id, rec);
