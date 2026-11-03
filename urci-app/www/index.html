@@ -15,6 +15,10 @@
     <button id="lang" class="btn-tertiary" type="button">EN</button>
   </header>
   <main id="app" aria-live="off"></main>
+  <nav class="tabs" id="tabs" hidden>
+    <a id="tab-inspect" href="#/inspect">Inspeksi</a>
+    <a id="tab-history" href="#/history">Riwayat</a>
+  </nav>
   <!-- Order matters: @capacitor/core must load before anything calls Capacitor.registerPlugin (spike lesson). -->
   <script src="vendor/capacitor.js"></script>
   <script src="content.js"></script>
@@ -25,7 +29,9 @@
   <script src="dev-storage.js"></script>
   <script src="platform.js"></script>
   <script src="stamp.js"></script>
+  <script src="history-model.js"></script>
   <script src="inspect.js"></script>
+  <script src="history.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

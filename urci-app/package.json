@@ -7,7 +7,7 @@
     "test": "node --test test/*.test.js",
     "vendor": "node scripts/vendor.mjs",
     "sync": "node scripts/vendor.mjs && cap sync android",
-    "ui-test": "node test/ui/inspect.ui.cjs && node test/ui/native-boot.ui.cjs"
+    "ui-test": "node test/ui/inspect.ui.cjs && node test/ui/native-boot.ui.cjs && node test/ui/history.ui.cjs"
   },
   "engines": {
     "node": ">=20"

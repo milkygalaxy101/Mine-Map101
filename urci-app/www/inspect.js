@@ -85,6 +85,36 @@
       }
     }
 
+    // Ubah (P7-2): load a saved record into the form. Saved photos stay in the folder (saved: true);
+    // new photos are drafts until Save; removed ones are cleaned up by store.reconcilePhotos after Save.
+    loadRecord(rec) {
+      const h = rec.header;
+      const qty = {};
+      const photos = {};
+      let dust = null;
+      for (const e of rec.entries || []) {
+        const key = `${e.code}-${e.sev}`;
+        if (e.code === '84') dust = e.sev; else qty[key] = e.quantity;
+        if (e.photos && e.photos.length) photos[key] = e.photos.map((p) => ({ ...p, saved: true }));
+      }
+      this.state = {
+        header: { branch: h.branch, section: h.section, sampleUnit: String(h.sampleUnit), date: h.date, sampleArea: String(h.sampleArea), inspector: h.inspector || '' },
+        qty, dust, photos, editing: { uuid: rec.uuid, folder: rec.folder },
+      };
+      this.errors = {};
+      this.expanded = false;
+      this.lastUrci = null;
+      this.saveDraft();
+    }
+
+    async cancelEdit() {
+      await this.discardDraftPhotos(this.state);
+      this.local.removeItem(DRAFT_KEY);
+      this.state = this.blank();
+      this.expanded = true;
+      this.render();
+    }
+
     hasEntries() {
       return Object.keys(this.state.qty).length > 0 || !!this.state.dust;
     }
@@ -133,6 +163,8 @@
       this.mount.replaceChildren();
       if (this.testMode) this.mount.append(el('div', { class: 'banner info', role: 'note' }, icon('info', ''), el('p', { text: t.testStorage })));
       if (this.platform) this.mount.append(el('div', { class: 'status-row', id: 'gps-row' }));
+      if (this.state.editing) this.mount.append(el('div', { class: 'banner info', role: 'status' }, icon('info', ''), el('p', { text: t.editing }),
+        el('button', { class: 'btn-tertiary', type: 'button', text: t.cancelEdit, onclick: () => this.cancelEdit() })));
       if (!this.tipSeen) this.mount.append(this.renderTip());
       this.bodyBox = el('div');
       this.mount.append(this.renderHeader(), this.bodyBox);
@@ -436,12 +468,12 @@
         wrap.append(el('div', { class: 'label-row' }, el('span', { class: 'note', text: `${t.photosOfCell} (${list.length})` })));
         const strip = el('div', { class: 'thumbs' });
         for (const p of list) {
-          const url = this.platform.media.draftUrl(p.path);
+          const url = p.saved ? this.platform.media.folderUrl(`inspections/${this.state.editing.folder}/${p.name}`) : this.platform.media.draftUrl(p.path);
           strip.append(el('div', { class: 'thumb' },
             url ? el('img', { src: url, alt: p.name }) : el('span', { class: 'note', text: p.name }),
             el('button', { class: 'thumb-del', type: 'button', 'aria-label': `${t.deletePhoto} ${p.name}`, onclick: async () => {
               if (!(await this.confirm({ title: t.deletePhoto, body: t.deletePhotoBody, ok: t.deletePhoto, cancel: t.cancel, destructiveOk: true }))) return;
-              await this.platform.media.deleteDraft(p.path);
+              if (!p.saved) await this.platform.media.deleteDraft(p.path);
               this.state.photos[key] = (this.state.photos[key] || []).filter((x) => x !== p);
               if (!this.state.photos[key].length) delete this.state.photos[key];
               this.saveDraft(); closeSheet(); this.render(); this.openKeypad(code, sev);
@@ -495,14 +527,14 @@
     }
 
     async removePhotos(key) {
-      for (const p of this.state.photos[key] || []) await this.platform.media.deleteDraft(p.path);
+      for (const p of this.state.photos[key] || []) if (!p.saved) await this.platform.media.deleteDraft(p.path);
       delete this.state.photos[key];
       this.saveDraft();
     }
 
     async discardDraftPhotos(draft) {
       if (!this.platform || !draft || !draft.photos) return;
-      for (const p of Object.values(draft.photos).flat()) await this.platform.media.deleteDraft(p.path);
+      for (const p of Object.values(draft.photos).flat()) if (!p.saved) await this.platform.media.deleteDraft(p.path);
     }
 
     // ---------- calc sheet (UJ-3, H2) ----------
@@ -592,12 +624,13 @@
         const ph = photoMeta(key);
         return ph.length ? { ...base, photos: ph } : base;
       });
-      const drafts = Object.values(this.state.photos).flat();
+      const drafts = Object.values(this.state.photos).flat().filter((p) => !p.saved);
+      const editingUuid = this.state.editing ? this.state.editing.uuid : undefined;
       const r = this.compute();
       this.saving = true;
       this.renderBar();
       try {
-        await this.store.saveInspection({ header, entries, result: { urciRaw: r.urciRaw, urci: r.urci, tdv: r.tdv, q: r.q } }, undefined, {
+        await this.store.saveInspection({ header, entries, result: { urciRaw: r.urciRaw, urci: r.urci, tdv: r.tdv, q: r.q } }, editingUuid, {
           // photos go into the inspection folder before the record that lists them (create-new, never overwrite)
           beforeWrite: async (rec) => { for (const p of drafts) await this.platform.media.copyIn(p.path, `inspections/${rec.folder}/${p.name}`); },
         });

@@ -43,7 +43,6 @@
       await io.kv.set('lang', lang);
       document.documentElement.lang = lang;
       chrome();
-      if (screen) screen.render();
     });
     chrome();
 
@@ -102,14 +101,54 @@
     screen = new window.InspectScreen({
       mount, engine: window.UrciEngine, curves, storeApi: window.UrciStore, store, content,
       getLang: () => lang, kv: io.kv, local: io.local, testMode: !platform.native, platform, newId: io.newId,
-      onFolderLost: async () => { await chooseFolder(); helpBtn.hidden = false; await store.loadAll(); screen.render(); },
+      onFolderLost: async () => { await chooseFolder(); helpBtn.hidden = false; await store.loadAll(); route(); },
     });
+    const historyScreen = new window.HistoryScreen({
+      mount, store, engine: window.UrciEngine, content, getLang: () => lang, platform, storeApi: window.UrciStore,
+      toast: (m) => screen.toast(m), confirm: (o) => screen.confirm(o),
+      onEdit: (rec) => { screen.loadRecord(rec); location.hash = '#/inspect'; },
+    });
+
+    // ---- tabs + hash routes (the phone's back button walks back up the History levels) ----
+    const tabs = document.getElementById('tabs');
+    tabs.hidden = false;
+    function parse(hash) {
+      const p = (hash || '').replace(/^#\/?/, '').split('/').map(decodeURIComponent);
+      if (p[0] !== 'history') return { tab: 'inspect' };
+      if (p[1] === 's' && p[3] === 'r') return { tab: 'history', view: 'round', key: p[2], roundId: p[4] };
+      if (p[1] === 's') return { tab: 'history', view: 'section', key: p[2] };
+      if (p[1] === 'i') return { tab: 'history', view: 'detail', uuid: p[2] };
+      return { tab: 'history', view: 'sections' };
+    }
+    function route() {
+      const r = parse(location.hash);
+      const onInspect = r.tab === 'inspect';
+      document.body.classList.toggle('on-inspect', onInspect);
+      document.getElementById('tab-inspect').setAttribute('aria-current', onInspect ? 'page' : 'false');
+      document.getElementById('tab-history').setAttribute('aria-current', onInspect ? 'false' : 'page');
+      document.getElementById('tab-inspect').textContent = t().tabInspect;
+      document.getElementById('tab-history').textContent = t().tabHistory;
+      helpBtn.hidden = !onInspect;
+      titleEl.textContent = onInspect ? t().inspect : t().historyTitle;
+      const bar = document.getElementById('resultbar');
+      if (bar) bar.hidden = !onInspect;
+      if (onInspect) screen.render(); else historyScreen.render(r);
+      if (!onInspect) { const b = document.getElementById('resultbar'); if (b) b.hidden = true; }
+      window.scrollTo(0, 0);
+    }
+    window.addEventListener('hashchange', route);
+    // tabs hide while the keyboard is up (an input has focus), so the result bar sits right above it
+    document.addEventListener('focusin', (e) => { if (e.target.matches('input, textarea')) document.body.classList.add('kbd'); });
+    document.addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !document.activeElement.matches('input, textarea')) document.body.classList.remove('kbd'); }, 50));
+
+    langBtn.addEventListener('click', () => route());
     helpBtn.hidden = false;
     helpBtn.addEventListener('click', () => screen.showTip());
-    screen.render();
+    route();
     await screen.start();
+    route();
     if (firstRunNote) screen.toast(firstRunNote);
-    window.__urci = { screen, store, curves, platform }; // test hook
+    window.__urci = { screen, store, curves, platform, historyScreen }; // test hook
   }
   boot().catch((e) => fatal('Gagal memulai / start failed: ' + (e && (e.message || e))));
 })();
