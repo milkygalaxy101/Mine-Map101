@@ -72,7 +72,7 @@ o={n:[[c for c in r] for r in wb[n].iter_rows(values_only=True)] for n in wb.she
 o['_frozen']=wb['Inspeksi'].freeze_panes
 o['_fmt']=wb['Kerusakan']['K2'].number_format
 print(json.dumps(o,default=str))`;
-  const got = JSON.parse(execFileSync('python3', ['-I', '-c', py, out], { encoding: 'utf8' }));
+  const got = JSON.parse(execFileSync('python3', ['-c', py, out], { encoding: 'utf8' }));
   assert.deepEqual(Object.keys(got).filter((k) => !k.startsWith('_')), ['Inspeksi', 'Kerusakan', 'Tren', 'Info']);
   assert.equal(got.Inspeksi[0][0], 'Kode jalan');
   assert.equal(got.Inspeksi[1][10], 59);
