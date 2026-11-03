@@ -17,6 +17,7 @@
     "@capacitor/camera": "8.2.6",
     "@capacitor/core": "8.6.0",
     "@capacitor/geolocation": "8.2.4",
+    "@capacitor/share": "8.0.3",
     "jspdf": "4.2.1"
   },
   "devDependencies": {

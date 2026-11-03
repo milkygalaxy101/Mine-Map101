@@ -352,6 +352,42 @@ public class UrciStoragePlugin extends Plugin {
         }
     }
 
+    // Exports (PDF, later xlsx/zip): write to app cache (shareable via FileProvider) and copy into
+    // <data folder>/exports/ with create-new semantics; a clash gets "-2", "-3", ... before the extension.
+    @PluginMethod
+    public void saveExport(PluginCall call) {
+        String name = call.getString("name");
+        String b64 = call.getString("base64");
+        String mime = call.getString("mime", "application/pdf");
+        if (name == null || b64 == null || !safeSegment(name) || name.contains("/")) { call.reject("bad args", "BAD_ARGS"); return; }
+        try {
+            byte[] bytes = Base64.decode(b64, Base64.DEFAULT);
+            if (!hasSpace(bytes.length * 3L)) { call.reject("not enough space", "NO_SPACE"); return; }
+            File dir = new File(getContext().getCacheDir(), "exports");
+            if (!dir.exists() && !dir.mkdirs()) throw new Exception("cannot create cache dir");
+            File cache = new File(dir, name);
+            try (FileOutputStream fo = new FileOutputStream(cache)) { fo.write(bytes); }
+            DocumentFile exports = resolve("exports", true);
+            if (exports == null) { call.reject("no folder", root() == null ? "NO_FOLDER" : "PERMISSION_LOST"); return; }
+            int dot = name.lastIndexOf('.');
+            String base = dot > 0 ? name.substring(0, dot) : name, ext = dot > 0 ? name.substring(dot) : "";
+            String finalName = name;
+            for (int i = 2; exports.findFile(finalName) != null; i++) finalName = base + "-" + i + ext;
+            DocumentFile out = exports.createFile(mime, finalName);
+            if (out == null) throw new Exception("create failed");
+            try (OutputStream os = getContext().getContentResolver().openOutputStream(out.getUri(), "wt")) {
+                if (os == null) throw new Exception("no output stream");
+                os.write(bytes);
+            }
+            JSObject ret = new JSObject();
+            ret.put("cachePath", cache.getAbsolutePath());
+            ret.put("relPath", "exports/" + out.getName());
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject(String.valueOf(e.getMessage()), "IO");
+        }
+    }
+
     // ---------- device ----------
     @PluginMethod
     public void freeSpace(PluginCall call) {

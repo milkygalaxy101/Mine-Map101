@@ -27,8 +27,8 @@
   }
 
   class HistoryScreen {
-    constructor({ mount, store, engine, content, getLang, platform, storeApi, onEdit, toast, confirm }) {
-      Object.assign(this, { mount, store, engine, content, getLang, platform, S: storeApi, onEdit, toast, confirm });
+    constructor({ mount, store, engine, content, getLang, platform, storeApi, onEdit, toast, confirm, curves }) {
+      Object.assign(this, { mount, store, engine, content, getLang, platform, S: storeApi, onEdit, toast, confirm, curves });
     }
     t() { return this.content[this.getLang()]; }
     lowers() { return this.engine.DEFAULT_BAND_LOWERS; }
@@ -121,7 +121,7 @@
       }
       // rounds table, newest first
       const tbl = el('table', { class: 'data-table' }, el('caption', { text: t.roundsTitle }),
-        el('thead', {}, el('tr', {}, el('th', { scope: 'col', text: t.round }), el('th', { scope: 'col', text: t.urci }), el('th', { scope: 'col', text: t.units }))));
+        el('thead', {}, el('tr', {}, el('th', { scope: 'col', text: t.round }), el('th', { scope: 'col', text: t.urci }), el('th', { scope: 'col', text: t.unitsCol }))));
       const tb = el('tbody');
       for (const r of [...trend].reverse()) {
         tb.append(el('tr', {},
@@ -220,7 +220,89 @@
       if (closed) this.mount.append(el('div', { class: 'banner warning' }, icon('warning', ''), el('p', { text: t.roundClosed })));
       this.mount.append(el('div', { class: 'sheet-actions' },
         el('button', { class: 'btn-tertiary', type: 'button', disabled: closed, text: t.del, onclick: () => this.del(r) }),
+        el('button', { class: 'btn-secondary', type: 'button', id: 'make-pdf', text: t.pdfButton, onclick: (e) => this.makePdf(r, e.currentTarget) }),
         el('button', { class: 'btn-primary', type: 'button', disabled: closed, text: t.edit, onclick: () => this.onEdit(r) })));
+    }
+
+    // ---------- PDF (DA 7348-R layout) built in a Web Worker ----------
+    pdfName(r) {
+      const tok = (x) => this.S.sanitizeToken(x);
+      return `URCI_${tok(r.header.branch)}_${tok(r.header.section)}_SU${r.header.sampleUnit}_${r.header.date.replace(/-/g, '')}.pdf`;
+    }
+
+    async makePdf(r, btn) {
+      const t = this.t();
+      if (this.pdfBusy) return;
+      this.pdfBusy = true;
+      if (btn) btn.disabled = true;
+      const prog = el('p', { class: 'note', role: 'status', text: t.pdfMaking });
+      const scrim = el('div', { class: 'scrim center' }, el('div', { class: 'dialog', role: 'alertdialog', 'aria-label': t.pdfMaking },
+        el('h2', { text: t.pdfMaking }), el('div', { class: 'progress' }, el('div', { class: 'progress-bar' })), prog));
+      document.body.append(scrim);
+      const bar = scrim.querySelector('.progress-bar');
+      try {
+        const h = r.header;
+        const entries = (r.entries || []).map((e) => (e.code === '84' ? { code: e.code, sev: e.sev } : { code: e.code, sev: e.sev, quantity: e.quantity }));
+        const calc = this.engine.computeUrci(this.curves, { sampleArea: h.sampleArea, entries });
+        const photos = [];
+        for (const e of r.entries || []) for (const p of e.photos || []) photos.push({ code: e.code, sev: e.sev, name: p.name, sha256: p.sha256, takenAt: p.takenAt, gps: p.gps || null,
+          url: new URL(this.platform.media.folderUrl(`inspections/${r.folder}/${p.name}`), location.href).href });
+        const round = this.store.rounds.get(r.roundId);
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const data = {
+          t, lang: this.getLang(), calc, rec: { header: h, entries: r.entries },
+          roundLabel: (round && round.label) || this.roundLabel(r.roundId),
+          gps: (photos.find((p) => p.gps) || {}).gps || null, photoCount: photos.length,
+          band: this.engine.rate(calc.urci, this.lowers()), bandRanges: this.engine.bandRanges(this.lowers()),
+          generatedAt: `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`,
+          conflict: this.store.conflicts.has(r.uuid),
+        };
+        const pdf = await new Promise((resolve, reject) => {
+          const w = new Worker('export.worker.js');
+          w.onmessage = (ev) => {
+            const m = ev.data;
+            if (m.type === 'progress') { bar.style.width = `${Math.round((m.done / Math.max(1, m.total)) * 100)}%`; prog.textContent = `${t.pdfPhotos}: ${m.done} / ${m.total}`; return; }
+            w.terminate();
+            if (m.type === 'done') resolve(m); else reject(new Error(m.error));
+          };
+          w.onerror = (e) => { w.terminate(); reject(new Error(e.message || 'worker error')); };
+          w.postMessage({ data: JSON.parse(JSON.stringify(data)), photos });
+        });
+        bar.style.width = '100%';
+        const saved = await this.platform.media.saveExport(new Blob([pdf.pdf], { type: 'application/pdf' }), this.pdfName(r));
+        scrim.remove();
+        this.pdfDone(saved, pdf.missing || []);
+      } catch (e) {
+        scrim.remove();
+        const code = e && e.code;
+        const msg = code === 'NO_SPACE' ? t.noSpace : code === 'NO_FOLDER' || code === 'PERMISSION_LOST' ? t.folderLost : String((e && (e.code || e.message)) || e);
+        this.alert(t.pdfFailed, msg);
+      } finally {
+        this.pdfBusy = false;
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    pdfDone(saved, missing) {
+      const t = this.t();
+      const media = this.platform.media;
+      const close = () => scrim.remove();
+      const actions = el('div', { class: 'dialog-actions' }, el('button', { class: 'btn-tertiary', type: 'button', text: t.close, onclick: close }));
+      if (media.canShare) actions.append(el('button', { class: 'btn-primary', type: 'button', id: 'share-pdf', text: t.share, onclick: async () => { try { await media.share(saved, t.pdfTitle); } catch (e) { /* user closed the share sheet */ } close(); } }));
+      const scrim = el('div', { class: 'scrim center' }, el('div', { class: 'dialog', role: 'dialog', 'aria-label': t.pdfSaved },
+        el('h2', { text: t.pdfSaved }), el('p', { class: 'mono', text: saved.relPath }),
+        missing.length ? el('p', { class: 'err-text', text: `${t.pdfMissingPhotos}: ${missing.join(', ')}` }) : '', actions));
+      document.body.append(scrim);
+      (actions.lastChild).focus();
+    }
+
+    alert(title, body) {
+      const t = this.t();
+      const ok = el('button', { class: 'btn-primary', type: 'button', text: t.close, onclick: () => scrim.remove() });
+      const scrim = el('div', { class: 'scrim center' }, el('div', { class: 'dialog', role: 'alertdialog', 'aria-label': title }, el('h2', { text: title }), el('p', { text: body }), el('div', { class: 'dialog-actions' }, ok)));
+      document.body.append(scrim);
+      ok.focus();
     }
 
     async del(r) {

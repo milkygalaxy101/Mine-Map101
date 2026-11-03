@@ -105,7 +105,7 @@
     });
     const historyScreen = new window.HistoryScreen({
       mount, store, engine: window.UrciEngine, content, getLang: () => lang, platform, storeApi: window.UrciStore,
-      toast: (m) => screen.toast(m), confirm: (o) => screen.confirm(o),
+      toast: (m) => screen.toast(m), confirm: (o) => screen.confirm(o), curves,
       onEdit: (rec) => { screen.loadRecord(rec); location.hash = '#/inspect'; },
     });
 

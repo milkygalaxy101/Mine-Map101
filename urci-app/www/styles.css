@@ -223,6 +223,10 @@ body:not(.on-inspect) { padding-bottom: calc(var(--tabs) + env(safe-area-inset-b
 .empty { padding: var(--lg) 0; }
 .empty .btn-primary { display: inline-flex; align-items: center; text-decoration: none; }
 
+/* progress (DESIGN.md: 4 dp navy bar on a rule track) */
+.progress { height: 4px; background: var(--rule); border-radius: 2px; overflow: hidden; margin: var(--sm) 0; }
+.progress-bar { height: 100%; width: 5%; background: var(--primary); transition: width 200ms ease-out; }
+
 /* sheets and dialogs */
 .scrim { position: fixed; inset: 0; z-index: 20; background: rgba(20, 23, 26, .45); display: flex; align-items: flex-end; justify-content: center; }
 .scrim.center { align-items: center; padding: var(--md); }

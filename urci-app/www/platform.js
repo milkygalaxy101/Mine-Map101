@@ -27,6 +27,7 @@
     const P = C.registerPlugin('UrciStorage');
     const Camera = C.registerPlugin('Camera');
     const Geo = C.registerPlugin('Geolocation');
+    const Share = C.registerPlugin('Share');
     const dev = root.UrciDevStorage; // kv/local: WebView localStorage is app-private and excluded from backup
 
     const fs = {
@@ -54,6 +55,12 @@
       folderUrl: (relPath) => `/_saf/${relPath.split('/').map(encodeURIComponent).join('/')}`,
       copyIn: (draftPath, relPath) => P.copyDraftIn({ from: draftPath, to: relPath }),
       deleteDraft: (path) => P.deleteDraftPhoto({ path }).catch(() => {}),
+      // exports: saved into <data folder>/exports/ (never overwritten) + a cache copy that can be shared
+      async saveExport(blob, name, mime = 'application/pdf') {
+        return P.saveExport({ name, mime, base64: await blobToBase64(blob) });
+      },
+      canShare: true,
+      share: (saved, title) => Share.share({ title, dialogTitle: title, files: ['file://' + saved.cachePath] }),
     };
 
     const geo = makeGeo({
@@ -137,6 +144,19 @@
         filed.set(relPath, blob);
       },
       async deleteDraft(path) { drafts.delete(path); },
+      async saveExport(blob, name) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        a.hidden = true;
+        document.body.append(a);
+        a.click();
+        a.remove();
+        root.__urciLastExport = { name, size: blob.size, blob }; // test hook
+        return { relPath: `exports/${name}`, cachePath: null };
+      },
+      canShare: false,
+      share: async () => {},
     };
 
     const geo = makeGeo({

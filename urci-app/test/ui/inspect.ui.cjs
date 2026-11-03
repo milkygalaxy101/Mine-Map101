@@ -168,6 +168,36 @@ async function run(browser, base, scale) {
     check(ph && ph.file, `${tag} photo file is in the inspection folder`);
   }
 
+  // PDF from the saved inspection's detail (DA 7348-R layout + photo page), built in the worker
+  if (scale === 1) {
+    const uuid = await page.evaluate(() => window.__urci.store.live()[0].uuid);
+    await page.evaluate((u) => { location.hash = `#/history/i/${u}`; }, uuid);
+    await page.waitForSelector('#make-pdf');
+    await page.click('#make-pdf');
+    await page.waitForFunction(() => window.__urciLastExport, null, { timeout: 30000 });
+    const b64 = await page.evaluate(() => new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result.split(',')[1]); fr.readAsDataURL(window.__urciLastExport.blob); }));
+    const name = await page.evaluate(() => window.__urciLastExport.name);
+    check(/^URCI_I-HR01_S03_SU2_\d{8}\.pdf$/.test(name), `PDF file name: ${name}`);
+    const os = require('os');
+    const f = path.join(os.tmpdir(), `urci-ui-${process.pid}.pdf`);
+    fs.writeFileSync(f, Buffer.from(b64, 'base64'));
+    try {
+      const { execFileSync } = require('child_process');
+      const txt = execFileSync('pdftotext', ['-layout', f, '-'], { encoding: 'utf8' });
+      const pages = Number(/Pages:\s+(\d+)/.exec(execFileSync('pdfinfo', [f], { encoding: 'utf8' }))[1]);
+      check(txt.includes('format DA 7348-R') && /\b23\b/.test(txt) && txt.includes('SANGAT BURUK'), 'PDF has the sheet with URCI 23 and the rating');
+      check(pages === 2 && txt.includes('Lampiran foto') && /81-M-\d{8}-\d{6}-[0-9a-f]{8}\.jpg/.test(txt), `PDF has the photo page (${pages} pages)`);
+      check(!txt.includes('FOTO DIUBAH'), 'photo fingerprint verified (no tamper warning)');
+    } catch (e) {
+      if (e.code !== 'ENOENT') throw e;
+      console.log('skip PDF text checks: poppler not installed');
+    } finally { fs.unlinkSync(f); }
+    check(await page.locator('.dialog', { hasText: 'PDF tersimpan' }).count() === 1, 'PDF saved dialog shown');
+    await page.click('.dialog .btn-tertiary');
+    await page.evaluate(() => { location.hash = '#/inspect'; });
+    await page.waitForSelector('#urci-num');
+  }
+
   // language
   await page.click('#lang');
   check((await page.textContent('#save')).trim() === 'Save', `${tag} EN switch relabels Save`);
