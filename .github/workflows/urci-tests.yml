@@ -20,6 +20,8 @@ jobs:
       - run: npm ci
       - name: poppler (PDF text checks)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
+      - name: openpyxl (reads the exported .xlsx back)
+        run: pip install --quiet openpyxl==3.1.5
       - run: npm test
       - name: Curve anchors (reconciled curves)
         run: python3 ../docs/designs/curves/validate.py ../docs/designs/curves/curves.reconciled.json

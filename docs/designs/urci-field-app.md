@@ -1687,6 +1687,11 @@ Not design-complete only because Pass 3 stays at 7: the owner declined "Save & n
 - **E-T8 / TEST-1 device matrix dropped for the first release** (owner). The Android 9/10–14 matrix, the
   2–3 GB phone and the no-Play-Services phone are not release gates. Tested so far: realme 13 5G, Android 16.
   Accepted risk: low-memory behaviour untested; mitigations R7, R3, OOM messages, on-phone self-test.
+- **xlsx export without SheetJS** (implementation decision, 2026-11-03). The app only writes spreadsheets, never
+  reads them, so `www/xlsx-writer.js` writes Office Open XML directly and zips it with the already vendored fflate.
+  This removes the SheetJS parser (CVE-2023-30533, CVE-2024-22363 in the npm build) and the CDN download. Text
+  cells are inline strings, so typed "=..." can never run as a formula. Output is checked with openpyxl in CI.
+- **Graph PNG** is drawn on a canvas (`www/chart-png.js`) with the bundled fonts, 1600 × 1040 px, saved to exports/.
 
 ## GSTACK REVIEW REPORT
 

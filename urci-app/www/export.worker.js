@@ -1,8 +1,11 @@
-// Builds the inspection PDF off the main thread (eng R3). Photos are fetched by URL (/_saf/... on the phone,
+// Builds exports off the main thread (eng R3): the inspection PDF, and the all-data .xlsx ({ type: 'xlsx', sheets }).
+// Each export loads only its own library.
+// PDF: Photos are fetched by URL (/_saf/... on the phone,
 // blob: in the browser test build), never passed as base64 through the bridge (eng R9). Each photo's SHA-256
 // is re-checked against the record (HASH-1) and marked "FOTO DIUBAH" when it no longer matches.
 'use strict';
-importScripts('vendor/jspdf.umd.min.js', 'pdf-sheet.js');
+const loadedLibs = new Set();
+const need = (...files) => { const todo = files.filter((f) => !loadedLibs.has(f)); if (todo.length) importScripts(...todo); todo.forEach((f) => loadedLibs.add(f)); };
 
 async function b64(url) {
   const buf = new Uint8Array(await (await fetch(url)).arrayBuffer());
@@ -16,7 +19,18 @@ async function sha256Hex(bytes) {
 }
 
 self.onmessage = async (ev) => {
+  if (ev.data && ev.data.type === 'xlsx') {
+    try {
+      need('vendor/fflate.js', 'xlsx-writer.js');
+      const bytes = self.UrciXlsx.build(ev.data.sheets);
+      self.postMessage({ type: 'done', xlsx: bytes }, [bytes.buffer]);
+    } catch (e) {
+      self.postMessage({ type: 'error', error: String((e && e.message) || e) });
+    }
+    return;
+  }
   try {
+    need('vendor/jspdf.umd.min.js', 'pdf-sheet.js');
     const { data, photos } = ev.data;
     const fonts = {
       regular: await b64('pdf-fonts/Barlow-Regular.ttf'),

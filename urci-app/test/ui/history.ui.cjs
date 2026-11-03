@@ -47,6 +47,20 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${msg}`); if (
   check(await page.locator('#resultbar').isHidden(), 'result bar hidden on History');
   check(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), 'no horizontal scroll (sections)');
 
+  // T7: all data as .xlsx (built in the export worker), saved into exports/ with the Share dialog
+  await page.click('#xlsx-export');
+  await page.locator('.dialog', { hasText: 'File Excel tersimpan' }).waitFor();
+  const xl = await page.evaluate(async () => {
+    const e = window.__urciLastExport;
+    const fr = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(e.blob); });
+    return { name: e.name, b64: fr.split(',')[1] };
+  });
+  const files = require('fflate').unzipSync(new Uint8Array(Buffer.from(xl.b64, 'base64')));
+  const s1 = require('fflate').strFromU8(files['xl/worksheets/sheet1.xml']);
+  check(/^URCI_data_\d{8}\.xlsx$/.test(xl.name) && !!files['xl/workbook.xml'], `xlsx saved: ${xl.name}`);
+  check((s1.match(/<row /g) || []).length === 11, `Inspeksi sheet has header + 10 inspections (${(s1.match(/<row /g) || []).length - 1})`);
+  await page.click('.dialog .btn-tertiary');
+
   await page.locator('.row-link').first().click();
   await page.waitForSelector('svg.chart');
   const head = await page.textContent('.headline');

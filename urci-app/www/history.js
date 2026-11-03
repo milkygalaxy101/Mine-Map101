@@ -94,6 +94,44 @@
           el('span', { class: 'row-end' }, el('span', { class: 'big-num', text: this.num(s.latest) }), this.band(s.latest)))));
       }
       this.mount.append(ul);
+      const xbtn = el('button', { class: 'btn-secondary btn-block', type: 'button', id: 'xlsx-export', text: t.xlsxExport, onclick: () => this.exportXlsx(xbtn) });
+      this.mount.append(el('h3', { class: 'sub-h', text: t.xlsxExport }), el('p', { class: 'note', text: t.xlsxHelp }), xbtn);
+    }
+
+    // T7 "all data as .xlsx": rows built here (engine + history model), the file zipped in the export worker (R3).
+    async exportXlsx(btn) {
+      const t = this.t();
+      if (this.xlsxBusy) return;
+      this.xlsxBusy = true;
+      btn.disabled = true;
+      btn.textContent = t.xlsxBusy;
+      try {
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const sheets = UrciXlsxExport.buildWorkbook({
+          records: [...this.store.records.values()], rounds: this.store.rounds, engine: this.engine, curves: this.curves, t,
+          lowers: this.lowers(), hasConflict: (u) => this.store.conflicts.has(u), version: root.URCI_VERSION,
+          generatedAt: `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`,
+        });
+        const bytes = await new Promise((resolve, reject) => {
+          const w = new Worker('export.worker.js');
+          w.onmessage = (ev) => { w.terminate(); if (ev.data.type === 'done') resolve(ev.data.xlsx); else reject(new Error(ev.data.error)); };
+          w.onerror = (e) => { w.terminate(); reject(new Error(e.message || 'worker error')); };
+          w.postMessage({ type: 'xlsx', sheets });
+        });
+        const mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        const name = `URCI_data_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}.xlsx`;
+        const saved = await this.platform.media.saveExport(new Blob([bytes], { type: mime }), name, mime);
+        UrciLog.add('export-xlsx', { inspections: sheets[0].rows.length });
+        this.exportDone(saved, t.xlsxSaved, t.xlsxExport, []);
+      } catch (e) {
+        const code = e && e.code;
+        this.alert(t.xlsxFailed, code === 'NO_SPACE' ? t.noSpace : code === 'NO_FOLDER' || code === 'PERMISSION_LOST' ? t.folderLost : String((e && (e.code || e.message)) || e));
+      } finally {
+        this.xlsxBusy = false;
+        btn.disabled = false;
+        btn.textContent = t.xlsxExport;
+      }
     }
 
     // ---------- IA-3: section trend ----------
