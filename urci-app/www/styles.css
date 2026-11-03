@@ -162,6 +162,8 @@ main { padding: 0 var(--md); max-width: 720px; margin: 0 auto; }
   background: var(--paper); color: var(--primary); font: 600 16px Barlow; cursor: pointer; padding: 0 2px;
 }
 .dust-chip[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); }
+.dust-chip { position: relative; }
+.dust-chip[aria-pressed="true"] .photo-badge { color: var(--on-primary); }
 
 /* sticky result bar */
 .resultbar {

@@ -135,7 +135,31 @@ async function run(browser, base, scale) {
     await page.click('.sheet .sheet-actions .btn-primary');
   }
   await cell('82', 2, '61');
-  await page.locator('.grid-row').filter({ has: page.locator('.code', { hasText: '84' }) }).locator('.dust-chip').nth(0).click();
+  // dust (P7-1): a level opens the same sheet with "Ambil foto"; a photo is stamped and badged on the chip
+  {
+    const r84 = page.locator('.grid-row').filter({ has: page.locator('.code', { hasText: '84' }) });
+    await r84.locator('.dust-chip').nth(1).click();
+    await page.waitForSelector('.sheet #take-photo');
+    check((await page.textContent('.sheet h2')).includes('Debu · Sedang'), `${tag} dust chip opens its sheet`);
+    if (scale === 1) {
+      const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#take-photo')]);
+      await chooser.setFiles(path.join(__dirname, 'fixture-road.jpg'));
+      await page.waitForFunction(() => { const b = document.querySelector('.dust-chip .photo-badge'); return b && !b.classList.contains('busy'); }, null, { timeout: 15000 });
+      check((await r84.locator('.dust-chip').nth(1).locator('.photo-badge').textContent()).trim() === '1', `${tag} dust chip shows a photo badge`);
+      // switching to Ringan asks before dropping the Sedang photo
+      await r84.locator('.dust-chip').nth(0).click();
+      await page.locator('.dialog').waitFor();
+      await page.click('.dialog .btn-primary');
+      await page.waitForSelector('.sheet #take-photo');
+      check(await page.evaluate(() => !window.__urci.screen.state.photos['84-M'] && window.__urci.screen.state.dust === 'L'), `${tag} switching dust level drops the old level's photo after asking`);
+    } else {
+      await page.click('.sheet .sheet-actions .btn-primary');
+      await r84.locator('.dust-chip').nth(0).click();
+      await page.waitForSelector('.sheet #take-photo');
+    }
+    await page.click('.sheet .sheet-actions .btn-primary');
+    check(await page.evaluate(() => window.__urci.screen.state.dust === 'L'), `${tag} dust level Ringan selected`);
+  }
   await cell('86', 1, '45.5');
   await cell('86', 2, '84,5');
   const num = (await page.textContent('#urci-num')).trim();

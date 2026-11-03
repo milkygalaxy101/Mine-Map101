@@ -302,8 +302,13 @@
         for (const sev of SEVS) {
           if (code === '84') {
             const on = this.state.dust === sev;
-            row.append(el('button', { class: 'dust-chip', type: 'button', disabled, 'aria-pressed': on ? 'true' : 'false', 'aria-label': `${d.short}, ${t.sevName[sev]}`,
-              text: t.sevName[sev], onclick: () => { this.state.dust = on ? null : sev; this.afterEntry(); } }));
+            const key = `84-${sev}`;
+            const n = (this.state.photos[key] || []).length;
+            const chip = el('button', { class: 'dust-chip', type: 'button', disabled, 'aria-pressed': on ? 'true' : 'false',
+              'aria-label': `${d.short}, ${t.sevName[sev]}${n ? `, ${n} foto` : ''}`, text: t.sevName[sev], onclick: () => this.openDust(sev) });
+            if (this.busy.has(key)) chip.append(el('span', { class: 'photo-badge busy', 'aria-label': t.photoBusy }, '…'));
+            else if (n) chip.append(el('span', { class: 'photo-badge', 'aria-hidden': 'true' }, icon('photo_camera', '', 14), String(n)));
+            row.append(chip);
             continue;
           }
           const key = `${code}-${sev}`;
@@ -361,6 +366,38 @@
       this.saveDraft();
       this.render();
     }
+
+    // Dust (P7-1): one level for the whole unit. Tapping a level selects it and opens the same sheet as a
+    // filled box, with "Ambil foto"; Kosongkan clears it. Switching level drops the old level's photos
+    // (their stamp names the old level), after asking.
+    async openDust(sev) {
+      const t = this.t();
+      const old = this.state.dust;
+      if (old !== sev) {
+        if (old) {
+          const n = (this.state.photos[`84-${old}`] || []).length;
+          if (n && !(await this.confirm({ title: t.clearValue, body: t.clearWithPhotos.replace('{n}', n), ok: t.deletePhoto, cancel: t.cancel, destructiveOk: true }))) return;
+          await this.removePhotos(`84-${old}`);
+        }
+        this.state.dust = sev;
+        this.afterEntry();
+      }
+      const d = t.distress['84'];
+      const key = `84-${sev}`;
+      const close = this.sheet(el('h2', { text: `84 ${d.short} · ${t.sevName[sev]}` }),
+        el('div', { class: 'sev-guide' }, el('span', { class: 'label', text: t.looksLike }), el('span', { text: d.sev[sev] })),
+        this.moreSection('84', sev),
+        this.photoSection('84', sev, () => close()),
+        el('div', { class: 'sheet-actions' },
+          el('button', { class: 'btn-tertiary', type: 'button', text: t.clearValue, onclick: async () => {
+            const n = (this.state.photos[key] || []).length;
+            if (n && !(await this.confirm({ title: t.clearValue, body: t.clearWithPhotos.replace('{n}', n), ok: t.deletePhoto, cancel: t.cancel, destructiveOk: true }))) return;
+            await this.removePhotos(key);
+            this.state.dust = null; close(); this.afterEntry(); } }),
+          el('button', { class: 'btn-primary', type: 'button', text: t.done, onclick: () => close() })));
+    }
+
+    openCell(code, sev) { if (code === '84') this.openDust(sev); else this.openKeypad(code, sev); }
 
     // ---------- keypad sheet ----------
     openKeypad(code, sev) {
@@ -478,7 +515,7 @@
               if (!p.saved) await this.platform.media.deleteDraft(p.path);
               this.state.photos[key] = (this.state.photos[key] || []).filter((x) => x !== p);
               if (!this.state.photos[key].length) delete this.state.photos[key];
-              this.saveDraft(); closeSheet(); this.render(); this.openKeypad(code, sev);
+              this.saveDraft(); closeSheet(); this.render(); this.openCell(code, sev);
             } }, icon('close', ''))));
         }
         wrap.append(strip);
