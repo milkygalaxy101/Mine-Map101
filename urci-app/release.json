@@ -1,4 +1,5 @@
 {
   "versionName": "1.0.0",
-  "versionCode": 1
+  "versionCode": 1,
+  "signingCertSha256": "536fd55a421afe98713eae3aff6acfac66a70eb55a927027ad04c53e2a1615fb"
 }

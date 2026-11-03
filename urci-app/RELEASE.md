@@ -31,8 +31,8 @@ It creates the key and sets the four repository secrets the release workflow nee
    ```
 4. The **URCI Field release** workflow checks the version, runs all tests, builds the signed APK, verifies the
    signature and publishes a GitHub Release with `URCI-Field-<version>.apk` and its `.sha256`.
-5. After the **first** release, copy the "Signing certificate SHA-256" from the release notes into
-   `release.json` as `"signingCertSha256": "..."`. From then on a release signed with any other key fails.
+5. `release.json` pins the signing certificate (`signingCertSha256`, set when the key was created on 2026-11-03);
+   a release signed with any other key fails before it is published.
 
 ## On the phones
 
