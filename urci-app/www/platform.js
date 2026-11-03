@@ -81,7 +81,7 @@
           if (perm && perm.location === 'denied') return onError({ code: 'DENIED' });
         } catch (e) { return onError({ code: 'DENIED' }); }
         Geo.watchPosition({ enableHighAccuracy: true, maximumAge: 60000, timeout: 20000 }, (pos, err) => {
-          if (pos) onFix({ lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, at: pos.timestamp || Date.now() });
+          if (pos) onFix({ lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, at: Date.now() });
           else if (err) onError({ code: /disabled|off|unavailable/i.test(String(err.message)) ? 'OFF' : 'ERROR', message: err.message });
         });
       },
@@ -102,6 +102,11 @@
       bundles,
       io: { fs, kv: dev.kv, newId: dev.newId, local: dev.local },
       media, geo,
+      // R10 clock check: phone clock minus GPS time (ms), or null when no GPS fix came in time
+      clock: {
+        async gpsDrift() { try { const r = await P.nativeFix({ timeoutMs: 60000 }); return Number.isFinite(r.driftMs) ? r.driftMs : null; } catch (e) { return null; } },
+        openDateSettings: () => P.openDateSettings().catch(() => {}),
+      },
       folderStatus: () => P.folderStatus(),
       pickFolder: () => P.pickFolder(),
       freeSpace: () => P.freeSpace(),
@@ -192,7 +197,7 @@
       start(onFix, onError) {
         if (!navigator.geolocation) return onError({ code: 'OFF' });
         navigator.geolocation.watchPosition(
-          (pos) => onFix({ lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, at: pos.timestamp || Date.now() }),
+          (pos) => onFix({ lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, at: Date.now() }),
           (err) => onError({ code: err.code === 1 ? 'DENIED' : 'OFF', message: err.message }),
           { enableHighAccuracy: true, maximumAge: 60000, timeout: 20000 });
       },
@@ -280,7 +285,12 @@
       async listExports() { try { return (await dev.fs.list('exports')).filter((e) => !e.dir).map((e) => ({ ...e, size: exportsMem.has(e.name) ? exportsMem.get(e.name).size : 0 })); } catch (e) { return []; } },
     };
 
-    return { native: false, bundles, io: { fs: dev.fs, kv: dev.kv, newId: dev.newId, local: dev.local }, media, geo };
+    // browser test build has no GPS time; a test sets localStorage 'urci.testDriftMs' to simulate a drifted phone
+    const clock = {
+      async gpsDrift() { let v = null; try { v = root.localStorage.getItem('urci.testDriftMs'); } catch (e) { /* none */ } return v === null ? null : Number(v); },
+      async openDateSettings() { root.__urciOpenedDateSettings = true; },
+    };
+    return { native: false, bundles, io: { fs: dev.fs, kv: dev.kv, newId: dev.newId, local: dev.local }, media, geo, clock };
   }
 
   // GPS state shared by both platforms.

@@ -24,6 +24,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.StatFs;
+import android.os.SystemClock;
+import android.provider.Settings;
 import android.util.Base64;
 import android.webkit.MimeTypeMap;
 import android.webkit.WebResourceRequest;
@@ -673,8 +675,13 @@ public class UrciStoragePlugin extends Plugin {
                 ret.put("lat", loc.getLatitude());
                 ret.put("lon", loc.getLongitude());
                 ret.put("accuracy", loc.getAccuracy());
+                long now = System.currentTimeMillis();
+                long ageMs = Math.max(0L, (SystemClock.elapsedRealtimeNanos() - loc.getElapsedRealtimeNanos()) / 1000000L);
                 ret.put("gpsTime", loc.getTime());
-                ret.put("phoneTime", System.currentTimeMillis());
+                ret.put("phoneTime", now);
+                ret.put("ageMs", ageMs);
+                // R10 clock check: phone clock minus GPS time at the same instant (positive = phone is fast)
+                ret.put("driftMs", now - (loc.getTime() + ageMs));
                 ret.put("fixMs", System.currentTimeMillis() - t0);
                 call.resolve(ret);
             }
@@ -694,6 +701,19 @@ public class UrciStoragePlugin extends Plugin {
             lm.removeUpdates(holder[0]);
             call.reject("no fix in " + timeoutMs + " ms", "NO_FIX");
         }, timeoutMs);
+    }
+
+    // R10: "Buka Pengaturan" on the wrong-date dialog opens the phone's date & time settings.
+    @PluginMethod
+    public void openDateSettings(PluginCall call) {
+        try {
+            Intent i = new Intent(Settings.ACTION_DATE_SETTINGS);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getActivity().startActivity(i);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("no settings screen", "NO_APP");
+        }
     }
 
     // ---------- helpers ----------

@@ -39,6 +39,9 @@ main { padding: 0 var(--md); max-width: 720px; margin: 0 auto; }
 /* banners */
 .banner { display: flex; gap: var(--sm); align-items: flex-start; margin: var(--md) 0 0; padding: var(--sm) var(--md); border-radius: var(--r-lg); }
 .banner p { margin: 0; flex: 1; }
+.banner { flex-wrap: wrap; }
+.banner p { flex: 1 1 0; min-width: 0; }
+.banner > button, .banner > a { flex-basis: 100%; margin-left: calc(24px + var(--sm)); max-width: calc(100% - 24px - var(--sm)); }
 .banner.info { background: var(--tint); color: var(--ink); }
 .banner.info .icon { color: var(--primary); }
 .banner.warning { background: var(--paper); border-top: 3px solid var(--warning); border-radius: 0; padding-left: 0; padding-right: 0; }

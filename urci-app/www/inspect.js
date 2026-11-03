@@ -3,6 +3,7 @@
 (function (root) {
   'use strict';
   const CODES = ['81', '82', '83', '84', '85', '86', '87'];
+  const DRIFT_WARN_MS = 5 * 60000; // R10
   const SEVS = ['L', 'M', 'H'];
   const DRAFT_KEY = 'urci-draft';
 
@@ -68,8 +69,9 @@
       this.pickers = (await this.kv.get('pickers')) || { branch: [], section: [] };
       this.tipSeen = !!(await this.kv.get('tipSeen'));
       if (this.platform) {
-        this.platform.geo.onChange(() => this.renderGpsChip());
+        this.platform.geo.onChange((g) => { this.renderGpsChip(); if (g.status === 'ok') this.checkClock(); });
         this.platform.geo.start(); // warm up GPS when Inspect opens
+        this.checkClock();
       }
       this.render();
       const raw = this.local.getItem(DRAFT_KEY);
@@ -196,6 +198,7 @@
       const rid = this.roundId();
       const closed = rid && this.store.isRoundClosed(rid);
       this.bodyBox.replaceChildren(
+        this.driftBanner(),
         closed ? el('div', { class: 'banner warning', role: 'status' }, icon('warning', ''), el('p', { text: t.roundClosed }),
           el('button', { class: 'btn-secondary', type: 'button', text: t.reopen, onclick: () => this.reopen(rid) })) : '',
         el('h2', { class: 'block', text: t.block8 }), el('p', { class: 'how', text: t.gridHow }), this.renderGrid(!!closed));
@@ -399,6 +402,57 @@
 
     openCell(code, sev) { if (code === '84') this.openDust(sev); else this.openKeypad(code, sev); }
 
+    // ---------- R10: phone clock vs GPS time ----------
+    // One check per app start (retried after 2 min if no GPS fix came). The stamp keeps the phone's time;
+    // the inspector is told when it is wrong: > 5 min = warning banner, a different date = confirm before photo/Save.
+    async checkClock() {
+      if (!this.platform || !this.platform.clock || this.drift !== undefined || this.clockBusy) return;
+      if (this.clockTriedAt && Date.now() - this.clockTriedAt < 120000) return;
+      this.clockBusy = true;
+      this.clockTriedAt = Date.now();
+      try {
+        const d = await this.platform.clock.gpsDrift();
+        if (d === null || !Number.isFinite(d)) return;
+        this.drift = d;
+        if (root.UrciLog) UrciLog.add('clock', { driftS: Math.round(d / 1000) });
+        if (Math.abs(d) > DRIFT_WARN_MS && this.bodyBox && this.bodyBox.isConnected) this.renderBody();
+      } finally { this.clockBusy = false; }
+    }
+
+    driftText(ms) {
+      const t = this.t();
+      const min = Math.round(Math.abs(ms) / 60000);
+      return min >= 120 ? t.hoursN.replace('{n}', Math.round(min / 60)) : t.minutesN.replace('{n}', min);
+    }
+
+    driftBanner() {
+      const d = this.drift;
+      if (!Number.isFinite(d) || Math.abs(d) <= DRIFT_WARN_MS) return '';
+      const t = this.t();
+      return el('div', { class: 'banner warning', role: 'status', id: 'drift-banner' }, icon('warning', ''),
+        el('p', { text: t.clockDrift.replace('{n}', this.driftText(d)) }),
+        el('button', { class: 'btn-secondary', type: 'button', text: t.clockOpenSettings, onclick: () => this.platform.clock.openDateSettings() }));
+    }
+
+    // Resolves true to go on. A drift that puts the phone on another date asks first; "Lanjutkan saja" is logged
+    // and not asked again until the app restarts.
+    async clockGate() {
+      const d = this.drift;
+      if (!Number.isFinite(d) || this.driftAccepted) return true;
+      const phone = new Date();
+      const gps = new Date(phone.getTime() - d);
+      if (phone.toDateString() === gps.toDateString()) return true;
+      const t = this.t();
+      const pad = (n) => String(n).padStart(2, '0');
+      const fmt = (x) => `${pad(x.getDate())}/${pad(x.getMonth() + 1)}/${x.getFullYear()} ${pad(x.getHours())}:${pad(x.getMinutes())}`;
+      const fix = await this.confirm({ title: t.clockDateTitle, body: t.clockDateBody.replace('{phone}', fmt(phone)).replace('{gps}', fmt(gps)),
+        ok: t.clockOpenSettings, cancel: t.clockContinue });
+      if (fix) { this.platform.clock.openDateSettings(); return false; }
+      this.driftAccepted = true;
+      if (root.UrciLog) UrciLog.add('clock-continue', { driftS: Math.round(d / 1000) });
+      return true;
+    }
+
     // ---------- keypad sheet ----------
     openKeypad(code, sev) {
       const t = this.t();
@@ -532,6 +586,7 @@
       const t = this.t();
       const key = `${code}-${sev}`;
       const media = this.platform.media;
+      if (!(await this.clockGate())) return;
       let shot;
       try {
         shot = await media.capture();
@@ -702,6 +757,7 @@
     async save() {
       if (this.saving) return;
       const t = this.t();
+      if (!(await this.clockGate())) return;
       if (!this.headerValid(true)) {
         this.expanded = true;
         this.render();

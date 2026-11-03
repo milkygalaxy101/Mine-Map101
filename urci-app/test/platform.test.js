@@ -109,3 +109,15 @@ test('gallery pick: cancel is null; EXIF fields and file date pass through raw; 
     await assert.rejects(plat.media.pickGallery(), { code: 'PICKER_ERROR' });
   } finally { global.fetch = realFetch; }
 });
+
+test('clock check: native drift passes through; no fix or an error is null (never blocks)', async () => {
+  const f = fakeNative();
+  f.plugin.nativeFix = async ({ timeoutMs }) => { f.calls.push(['nativeFix', timeoutMs]); return { driftMs: -360000, gpsTime: 1, phoneTime: 2 }; };
+  const plat = load(f.self).create();
+  assert.equal(await plat.clock.gpsDrift(), -360000);
+  assert.deepEqual(f.calls.find((c) => c[0] === 'nativeFix'), ['nativeFix', 60000]);
+  f.plugin.nativeFix = async () => { throw Object.assign(new Error('x'), { code: 'NO_FIX' }); };
+  assert.equal(await plat.clock.gpsDrift(), null);
+  f.plugin.openDateSettings = async () => { throw Object.assign(new Error('x'), { code: 'NO_APP' }); };
+  await plat.clock.openDateSettings(); // swallowed
+});
