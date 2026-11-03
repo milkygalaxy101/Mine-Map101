@@ -26,8 +26,8 @@ It creates the key and sets the four repository secrets the release workflow nee
 2. Commit and push; wait for the `urci-tests` and `URCI Field APK` checks to pass.
 3. Tag and push the tag:
    ```bash
-   git tag urci-v0.1.0
-   git push origin urci-v0.1.0
+   git tag urci-v1.0.0
+   git push origin urci-v1.0.0
    ```
 4. The **URCI Field release** workflow checks the version, runs all tests, builds the signed APK, verifies the
    signature and publishes a GitHub Release with `URCI-Field-<version>.apk` and its `.sha256`.
