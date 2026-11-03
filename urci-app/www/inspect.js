@@ -522,6 +522,8 @@
       }
       wrap.append(el('button', { class: 'btn-secondary btn-block', type: 'button', id: 'take-photo', disabled: !ready || this.busy.has(key),
         onclick: () => { closeSheet(); this.takePhoto(code, sev); } }, icon('photo_camera', ''), ' ', this.busy.has(key) ? t.photoBusy : t.takePhoto));
+      wrap.append(el('button', { class: 'btn-tertiary', type: 'button', id: 'pick-gallery', disabled: !ready || this.busy.has(key),
+        onclick: () => { closeSheet(); this.importPhoto(code, sev); } }, t.pickGallery));
       if (!ready) wrap.append(el('p', { class: 'note', text: t.photoNeedsHeader }));
       return wrap;
     }
@@ -540,20 +542,81 @@
         return;
       }
       if (!shot) return; // user cancelled
+      const at = Date.now();
+      await this.addPhoto(code, sev, shot, { at, getFix: () => this.platform.geo.fixForStamp() });
+    }
+
+    // Gallery import (design: Photo rules / Gallery import, P7-3): time from EXIF DateTimeOriginal, else typed in
+    // by the inspector (stamp says WAKTU MANUAL); GPS from EXIF only, never the current position.
+    async importPhoto(code, sev) {
+      const t = this.t();
+      let shot;
+      try {
+        shot = await this.platform.media.pickGallery();
+      } catch (e) {
+        const c = e && e.code;
+        this.notice(t.photoFailed, c === 'BAD_IMAGE' ? t.badImage : c === 'OOM' ? t.photoTooBig : String((e && (e.code || e.message)) || e));
+        return;
+      }
+      if (!shot) return;
+      let at = UrciStamp.parseExifTime(shot.exifDto, shot.exifOffset);
+      const manual = at === null;
+      if (manual) {
+        at = await this.askPhotoTime(shot.fileTime);
+        if (at === null) return;
+      }
+      await this.addPhoto(code, sev, shot, {
+        at, getFix: async () => (shot.exifGps ? { lat: shot.exifGps.lat, lon: shot.exifGps.lon, acc: null } : null),
+        marker: manual ? `${t.galleryMark} · ${t.manualTimeMark}` : t.galleryMark,
+        extra: manual ? { source: 'gallery', timeManual: true } : { source: 'gallery' } });
+    }
+
+    // Date + time picker, pre-filled with the file date (or now). Resolves epoch ms, or null on cancel.
+    askPhotoTime(fileTime) {
+      const t = this.t();
+      const pad = (n) => String(n).padStart(2, '0');
+      const local = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+      return new Promise((resolve) => {
+        const input = el('input', { id: 'photo-time', type: 'datetime-local', max: local(Date.now()) });
+        input.value = local(Number.isFinite(fileTime) && fileTime > 0 && fileTime <= Date.now() ? fileTime : Date.now());
+        const err = el('p', { class: 'err-text', role: 'alert' });
+        const done = (v) => { scrim.remove(); resolve(v); };
+        const ok = () => {
+          const ms = input.value ? new Date(input.value).getTime() : NaN;
+          if (!Number.isFinite(ms)) { err.textContent = t.photoTimeMissing; input.setAttribute('aria-invalid', 'true'); return; }
+          if (ms > Date.now() + 5 * 60000) { err.textContent = t.photoTimeFuture; input.setAttribute('aria-invalid', 'true'); return; }
+          done(ms);
+        };
+        const box = el('div', { class: 'dialog', role: 'dialog', 'aria-modal': 'true', 'aria-label': t.photoTimeTitle },
+          el('h2', { text: t.photoTimeTitle }), el('p', { text: t.photoTimeBody }),
+          el('label', { class: 'ask', for: 'photo-time', text: t.photoTimeLabel }), input, err,
+          el('div', { class: 'dialog-actions' },
+            el('button', { class: 'btn-tertiary', type: 'button', text: t.cancel, onclick: () => done(null) }),
+            el('button', { class: 'btn-primary', type: 'button', id: 'photo-time-ok', text: t.photoTimeOk, onclick: ok })));
+        const scrim = el('div', { class: 'scrim center' }, box);
+        document.body.append(scrim);
+        input.focus();
+      });
+    }
+
+    // Shared by camera and gallery: stamp once, fingerprint, keep as a draft photo of this box.
+    async addPhoto(code, sev, shot, { at, getFix, marker = null, extra = {} }) {
+      const t = this.t();
+      const key = `${code}-${sev}`;
+      const media = this.platform.media;
       this.busy.add(key);
       this.render(); // back to the grid at once; the cell shows "…" while the stamp is made (ST-4)
       try {
-        const at = Date.now();
-        const fix = await this.platform.geo.fixForStamp();
+        const fix = await getFix();
         const h = this.state.header;
         const d = t.distress[code];
         const lines = UrciStamp.stampLines({ code, shortName: d.short, sevName: t.sevName[sev], at, branch: h.branch.trim().toUpperCase(),
-          section: h.section.trim().toUpperCase(), sampleUnit: h.sampleUnit, fix, gpsNa: t.gpsNa });
+          section: h.section.trim().toUpperCase(), sampleUnit: h.sampleUnit, fix, gpsNa: t.gpsNa, marker });
         const blob = await UrciStamp.stampPhoto(shot.url, lines);
         const sha256 = await UrciPlatform.sha256Hex(blob);
         const path = await media.saveDraft(blob);
-        const p = { name: UrciStamp.photoName(code, sev, at, this.newId()), path, sha256, takenAt: new Date(at).toISOString(),
-          gps: fix ? { lat: Math.round(fix.lat * 1e6) / 1e6, lon: Math.round(fix.lon * 1e6) / 1e6, acc: Math.round(fix.acc) } : null };
+        const gps = fix ? { lat: Math.round(fix.lat * 1e6) / 1e6, lon: Math.round(fix.lon * 1e6) / 1e6, ...(Number.isFinite(fix.acc) ? { acc: Math.round(fix.acc) } : {}) } : null;
+        const p = { name: UrciStamp.photoName(code, sev, at, this.newId()), path, sha256, takenAt: new Date(at).toISOString(), gps, ...extra };
         (this.state.photos[key] = this.state.photos[key] || []).push(p);
         this.saveDraft();
       } catch (e) {
@@ -656,7 +719,8 @@
         sampleArea: parseNum(h.sampleArea),
         ...(h.inspector.trim() ? { inspector: h.inspector.trim() } : {}),
       };
-      const photoMeta = (key) => (this.state.photos[key] || []).map((p) => ({ name: p.name, sha256: p.sha256, takenAt: p.takenAt, ...(p.gps ? { gps: p.gps } : {}) }));
+      const photoMeta = (key) => (this.state.photos[key] || []).map((p) => ({ name: p.name, sha256: p.sha256, takenAt: p.takenAt, ...(p.gps ? { gps: p.gps } : {}),
+        ...(p.source ? { source: p.source } : {}), ...(p.timeManual ? { timeManual: true } : {}) }));
       const entries = this.entries().map((e) => {
         const key = `${e.code}-${e.sev}`;
         const base = e.code === '84' ? { code: e.code, sev: e.sev } : e;

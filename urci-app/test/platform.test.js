@@ -90,3 +90,22 @@ test('a full Store round trip works over the native adapter', async () => {
   assert.equal(again.live().length, 1);
   assert.equal(again.broken.length, 0);
 });
+
+test('gallery pick: cancel is null; EXIF fields and file date pass through raw; 0,0 GPS is ignored', async () => {
+  const f = fakeNative();
+  const err = (code) => Object.assign(new Error(code), { code });
+  f.plugin.pickPhoto = async () => { throw err('CANCELLED'); };
+  const plat = load(f.self).create();
+  assert.equal(await plat.media.pickGallery(), null);
+  f.plugin.pickPhoto = async () => ({ uri: 'content://x/1', name: 'IMG.jpg', lastModified: 1760000000000 });
+  f.plugin.downscale = async ({ uri, maxEdge }) => { f.calls.push(['downscale', uri, maxEdge]); return { path: '/cache/pending/ds.jpg', exifDateTimeOriginal: '2026:10:01 10:11:12', exifOffsetTimeOriginal: '+08:00', exifLat: 0, exifLon: 0 }; };
+  const realFetch = global.fetch;
+  global.fetch = async () => ({ blob: async () => 'BLOB' });
+  try {
+    const r = await plat.media.pickGallery();
+    assert.deepEqual({ ...r, url: undefined }, { blob: 'BLOB', url: undefined, exifDto: '2026:10:01 10:11:12', exifOffset: '+08:00', exifGps: null, fileTime: 1760000000000 });
+    assert.deepEqual(f.calls.find((c) => c[0] === 'downscale'), ['downscale', 'content://x/1', 2048]);
+    f.plugin.pickPhoto = async () => { throw err('PICKER_ERROR'); };
+    await assert.rejects(plat.media.pickGallery(), { code: 'PICKER_ERROR' });
+  } finally { global.fetch = realFetch; }
+});

@@ -251,7 +251,7 @@
         const entries = (r.entries || []).map((e) => (e.code === '84' ? { code: e.code, sev: e.sev } : { code: e.code, sev: e.sev, quantity: e.quantity }));
         const calc = this.engine.computeUrci(this.curves, { sampleArea: h.sampleArea, entries });
         const photos = [];
-        for (const e of r.entries || []) for (const p of e.photos || []) photos.push({ code: e.code, sev: e.sev, name: p.name, sha256: p.sha256, takenAt: p.takenAt, gps: p.gps || null,
+        for (const e of r.entries || []) for (const p of e.photos || []) photos.push({ code: e.code, sev: e.sev, name: p.name, sha256: p.sha256, takenAt: p.takenAt, gps: p.gps || null, source: p.source || null, timeManual: !!p.timeManual,
           url: new URL(this.platform.media.folderUrl(`inspections/${r.folder}/${p.name}`), location.href).href });
         const round = this.store.rounds.get(r.roundId);
         const now = new Date();

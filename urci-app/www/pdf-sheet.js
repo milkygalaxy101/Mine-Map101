@@ -198,13 +198,14 @@
       doc.addImage(p.bytes, 'JPEG', M + (CW - f.w) / 2, slotTop, f.w, f.h);
       let cy = slotTop + f.h + 4;
       font('bold', 8.5); ink();
-      doc.text(`${p.code} ${t.distress[p.code].short} · ${t.sevName[p.sev]}`, M, cy);
+      const mark = p.source === 'gallery' ? ` · ${t.galleryMark}${p.timeManual ? ` · ${t.manualTimeMark}` : ''}` : '';
+      doc.text(`${p.code} ${t.distress[p.code].short} · ${t.sevName[p.sev]}${mark}`, M, cy);
       font('normal', 7.5, true); muted();
       cy += 3.8;
       const when = p.takenAt ? new Date(p.takenAt) : null;
       const pad = (n) => String(n).padStart(2, '0');
       const meta = [p.name, when ? `${pad(when.getDate())}/${pad(when.getMonth() + 1)}/${when.getFullYear()} ${pad(when.getHours())}:${pad(when.getMinutes())}` : '',
-        p.gps ? `${p.gps.lat.toFixed(5)}, ${p.gps.lon.toFixed(5)} ±${p.gps.acc} m` : t.gpsNa].filter(Boolean).join(' · ');
+        p.gps ? `${p.gps.lat.toFixed(5)}, ${p.gps.lon.toFixed(5)}${Number.isFinite(p.gps.acc) ? ` ±${p.gps.acc} m` : ''}` : t.gpsNa].filter(Boolean).join(' · ');
       doc.text(meta, M, cy, { maxWidth: CW });
       cy += 3.6;
       doc.text(`SHA-256 ${p.sha256 || '-'}`, M, cy, { maxWidth: CW });

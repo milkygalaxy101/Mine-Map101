@@ -133,6 +133,32 @@ async function run(browser, base, scale) {
     await r81.locator('button.cell').nth(1).click();
     check(await page.locator('.sheet .thumb img').count() === 1, `${tag} keypad shows the photo thumbnail`);
     await page.click('.sheet .sheet-actions .btn-primary');
+    // gallery import (P7-3): EXIF time used as is; no EXIF time -> date/time dialog, stamp says WAKTU MANUAL
+    if (scale === 1) {
+      const waitIdle = (n) => page.waitForFunction((k) => { const b = [...document.querySelectorAll('.photo-badge')]; return b.some((x) => x.textContent.trim() === String(k)) && !b.some((x) => x.classList.contains('busy')); }, n, { timeout: 15000 });
+      await r81.locator('button.cell').nth(1).click();
+      let [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#pick-gallery')]);
+      await chooser.setFiles(path.join(__dirname, 'fixture-exif.jpg'));
+      await waitIdle(2);
+      let ph = await page.evaluate(() => window.__urci.screen.state.photos['81-M'][1]);
+      check(ph.source === 'gallery' && !ph.timeManual && ph.takenAt === '2026-10-01T02:11:12.000Z' && ph.gps === null,
+        `${tag} gallery photo keeps its EXIF time (+08:00) and has no GPS: ${JSON.stringify({ s: ph.source, t: ph.takenAt, m: ph.timeManual, g: ph.gps })}`);
+      await r81.locator('button.cell').nth(1).click();
+      [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.click('#pick-gallery')]);
+      await chooser.setFiles(path.join(__dirname, 'fixture-road.jpg'));
+      await page.waitForSelector('#photo-time');
+      check(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(await page.inputValue('#photo-time')), `${tag} time dialog is pre-filled`);
+      await page.fill('#photo-time', '2999-01-01T10:00');
+      await page.click('#photo-time-ok');
+      check((await page.textContent('.dialog .err-text')).length > 0, `${tag} a future photo time is refused`);
+      await page.fill('#photo-time', '2026-10-02T08:30');
+      await page.click('#photo-time-ok');
+      await waitIdle(3);
+      ph = await page.evaluate(() => window.__urci.screen.state.photos['81-M'][2]);
+      check(ph.timeManual === true && new Date(ph.takenAt).getHours() === 8 && /-20261002-0830/.test(ph.name), `${tag} typed time is used and marked manual: ${ph.name}`);
+      // drop the two imports again so the rest of the run sees one photo
+      await page.evaluate(() => { const s = window.__urci.screen; s.state.photos['81-M'] = s.state.photos['81-M'].slice(0, 1); s.render(); });
+    }
   }
   await cell('82', 2, '61');
   // dust (P7-1): a level opens the same sheet with "Ambil foto"; a photo is stamped and badged on the chip

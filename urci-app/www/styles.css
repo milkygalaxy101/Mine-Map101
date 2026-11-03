@@ -309,3 +309,8 @@ a.btn-secondary { display: flex; align-items: center; justify-content: center; t
 .manual-source { margin-top: var(--lg); padding-top: var(--sm); border-top: 1px solid var(--rule); }
 .manual-calc { font-size: 14px; table-layout: fixed; }
 .manual-calc th, .manual-calc td { padding: 6px 4px; overflow-wrap: anywhere; hyphens: auto; }
+
+/* gallery import: photo time dialog */
+.dialog input[type="datetime-local"] { display: block; box-sizing: border-box; min-height: var(--target); width: 100%; padding: 0 var(--sm); border: 1px solid var(--muted); border-radius: var(--r-sm); background: var(--paper); font: 400 18px 'IBM Plex Mono', monospace; color: var(--ink); }
+.dialog input[aria-invalid="true"] { border: 2px solid var(--error); }
+.photos #pick-gallery { display: block; margin: var(--xs) auto 0; }

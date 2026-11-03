@@ -50,6 +50,17 @@
         const blob = await (await fetch(url)).blob();
         return { blob, url };
       },
+      // Gallery import: the original file via the system picker, downscaled natively; EXIF time/GPS passed raw
+      // (inspect.js parses them). Returns null when the user cancels.
+      async pickGallery() {
+        let picked;
+        try { picked = await P.pickPhoto(); } catch (e) { if (e && e.code === 'CANCELLED') return null; throw e; }
+        const ds = await P.downscale({ uri: picked.uri, maxEdge: 2048, quality: 92 });
+        const url = C.convertFileSrc('file://' + ds.path);
+        const blob = await (await fetch(url)).blob();
+        const gps = Number.isFinite(ds.exifLat) && Number.isFinite(ds.exifLon) && !(ds.exifLat === 0 && ds.exifLon === 0) ? { lat: ds.exifLat, lon: ds.exifLon } : null;
+        return { blob, url, exifDto: ds.exifDateTimeOriginal || null, exifOffset: ds.exifOffsetTimeOriginal || null, exifGps: gps, fileTime: picked.lastModified || null };
+      },
       async saveDraft(blob) { return (await P.writeDraftPhoto({ base64: await blobToBase64(blob) })).path; },
       draftUrl: (path) => C.convertFileSrc('file://' + path),
       folderUrl: (relPath) => `/_saf/${relPath.split('/').map(encodeURIComponent).join('/')}`,
@@ -103,13 +114,13 @@
     const drafts = new Map(); // path -> Blob (memory only: test mode)
     const filed = new Map(); // data-folder path -> Blob
 
-    function pickFile() {
+    function pickFile(camera = true) {
       return new Promise((resolve) => {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
-        input.setAttribute('capture', 'environment');
-        input.id = 'urci-camera-input';
+        if (camera) input.setAttribute('capture', 'environment');
+        input.id = camera ? 'urci-camera-input' : 'urci-gallery-input';
         input.hidden = true;
         input.addEventListener('change', () => { resolve(input.files && input.files[0]); input.remove(); }, { once: true });
         input.addEventListener('cancel', () => { resolve(null); input.remove(); }, { once: true });
@@ -136,6 +147,13 @@
         if (!file) return null;
         const blob = await downscale(file);
         return { blob, url: URL.createObjectURL(blob) };
+      },
+      async pickGallery() {
+        const file = await pickFile(false);
+        if (!file) return null;
+        const exif = root.UrciStamp.readExifTime(await file.arrayBuffer());
+        const blob = await downscale(file);
+        return { blob, url: URL.createObjectURL(blob), exifDto: exif ? exif.dto : null, exifOffset: exif ? exif.offset : null, exifGps: null, fileTime: file.lastModified || null };
       },
       async saveDraft(blob) {
         const path = `draft-photos/${dev.newId()}.jpg`;

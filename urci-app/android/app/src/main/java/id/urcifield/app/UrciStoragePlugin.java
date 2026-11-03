@@ -331,9 +331,17 @@ public class UrciStoragePlugin extends Plugin {
             try (InputStream in = getContext().getContentResolver().openInputStream(uri)) { bmp = BitmapFactory.decodeStream(in, null, opts); }
             if (bmp == null) { call.reject("decode failed", "BAD_IMAGE"); return; }
             int rotation = 0;
+            String dto = null, dtoOffset = null;
+            float[] latLong = null;
             try (InputStream in = getContext().getContentResolver().openInputStream(uri)) {
-                int o = new ExifInterface(in).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+                ExifInterface exif = new ExifInterface(in);
+                int o = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
                 rotation = o == ExifInterface.ORIENTATION_ROTATE_90 ? 90 : o == ExifInterface.ORIENTATION_ROTATE_180 ? 180 : o == ExifInterface.ORIENTATION_ROTATE_270 ? 270 : 0;
+                // gallery import: capture time (DateTimeOriginal only, never the file's edit time) and EXIF GPS if present
+                dto = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL);
+                dtoOffset = exif.getAttribute("OffsetTimeOriginal");
+                float[] ll = new float[2];
+                if (exif.getLatLong(ll)) latLong = ll;
             } catch (Exception ignored) { }
             float scale = Math.min(1f, (float) maxEdge / Math.max(bmp.getWidth(), bmp.getHeight()));
             Matrix m = new Matrix();
@@ -349,6 +357,9 @@ public class UrciStoragePlugin extends Plugin {
             ret.put("path", dst.getAbsolutePath());
             ret.put("width", out.getWidth());
             ret.put("height", out.getHeight());
+            if (dto != null) ret.put("exifDateTimeOriginal", dto);
+            if (dtoOffset != null) ret.put("exifOffsetTimeOriginal", dtoOffset);
+            if (latLong != null) { ret.put("exifLat", (double) latLong[0]); ret.put("exifLon", (double) latLong[1]); }
             out.recycle();
             call.resolve(ret);
         } catch (OutOfMemoryError e) {
@@ -467,6 +478,37 @@ public class UrciStoragePlugin extends Plugin {
                 call.reject("Picker failed: " + e, "PICKER_ERROR");
             }
         });
+    }
+
+    // Gallery import: the system document picker returns the original file (EXIF time kept), unlike pickers
+    // that re-encode a copy. lastModified pre-fills the manual time when the photo has no EXIF time.
+    @PluginMethod
+    public void pickPhoto(PluginCall call) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] { "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif" });
+        getActivity().runOnUiThread(() -> {
+            try {
+                startActivityForResult(call, intent, "onPhotoPicked");
+            } catch (Exception e) {
+                call.reject("Picker failed: " + e, "PICKER_ERROR");
+            }
+        });
+    }
+
+    @ActivityCallback
+    private void onPhotoPicked(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) { call.reject("cancelled", "CANCELLED"); return; }
+        Uri uri = result.getData().getData();
+        DocumentFile f = DocumentFile.fromSingleUri(getContext(), uri);
+        JSObject ret = new JSObject();
+        ret.put("uri", uri.toString());
+        ret.put("name", f != null ? f.getName() : null);
+        long lm = f != null ? f.lastModified() : 0;
+        if (lm > 0) ret.put("lastModified", lm);
+        call.resolve(ret);
     }
 
     @ActivityCallback
