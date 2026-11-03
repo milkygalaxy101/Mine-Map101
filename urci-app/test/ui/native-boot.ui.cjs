@@ -64,9 +64,18 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${msg}`); if (
   await page.waitForSelector('#pick-folder', { timeout: 10000 });
   check(true, 'first run shows the welcome screen with "Pilih folder data"');
   check((await page.textContent('.welcome')).includes('Documents'), 'welcome suggests Documents/URCI');
+  // owner report: the gear did nothing here and the app was Indonesian only; language switch on this screen
+  check(await page.locator('#settings-btn').isHidden(), 'first run: the gear (not usable yet) is hidden');
+  await page.click('#welcome-lang button:has-text("English")');
+  check((await page.textContent('.welcome h2')) === 'Welcome to URCI Field' && /Choose data folder|folder/i.test(await page.textContent('#pick-folder')), `English on the first screen: "${await page.textContent('#pick-folder')}"`);
+  check((await page.getAttribute('html', 'lang')) === 'en', 'page language follows the switch');
+  await page.screenshot({ path: path.join(__dirname, 'welcome-en.png') });
+  await page.click('#welcome-lang button:has-text("Bahasa Indonesia")');
+  check((await page.textContent('.welcome h2')) === 'Selamat datang di URCI Field', 'and back to Indonesian');
   await page.click('#pick-folder');
   await page.waitForSelector('#urci-num', { timeout: 10000 });
   check(true, 'after choosing a folder the Inspect screen opens');
+  check(await page.locator('#settings-btn').isVisible(), 'the gear is back once a folder is chosen');
   await page.waitForSelector('.toast');
   check((await page.textContent('.toast')).includes('Folder baru siap'), 'empty folder: toast "Folder baru siap dipakai"');
   check((await page.locator('.banner.info').filter({ hasText: 'Mode uji' }).count()) === 0, 'no "Mode uji" banner on the phone path');

@@ -59,25 +59,43 @@
     if (!v.ok) return fatal('curves.json rusak / invalid: ' + v.errors.slice(0, 3).join('; '));
 
     // ---- first run: choose the data folder (phone only) ----
+    // Owner report: the gear could not open Settings here (routing starts after a folder exists), so a user who
+    // does not read Indonesian was stuck. The language switch sits on this screen itself; the gear is hidden.
     async function chooseFolder() {
       helpBtn.hidden = true;
+      settingsBtn.hidden = true;
       return new Promise((resolve) => {
-        const msg = el('p', { class: 'note', role: 'status' });
-        const btn = el('button', { class: 'btn-primary btn-block', type: 'button', id: 'pick-folder', text: t().pickFolder });
-        btn.addEventListener('click', async () => {
-          msg.textContent = '';
-          try {
-            await platform.pickFolder();
-          } catch (e) {
-            msg.textContent = e && e.code === 'NO_PICKER' ? t().noPicker : t().pickCancelled;
-            btn.textContent = t().retry;
-            return;
-          }
-          msg.textContent = t().checkingFolder;
-          resolve();
-        });
-        mount.replaceChildren(el('section', { class: 'welcome' },
-          el('h2', { text: t().welcomeTitle }), el('p', { text: t().welcomeBody }), el('p', { class: 'note', text: t().welcomeHint }), btn, msg));
+        const draw = (retry = false, note = '') => {
+          const msg = el('p', { class: 'note', role: 'status', text: note });
+          const btn = el('button', { class: 'btn-primary btn-block', type: 'button', id: 'pick-folder', text: retry ? t().retry : t().pickFolder });
+          btn.addEventListener('click', async () => {
+            msg.textContent = '';
+            try {
+              await platform.pickFolder();
+            } catch (e) {
+              msg.textContent = e && e.code === 'NO_PICKER' ? t().noPicker : t().pickCancelled;
+              btn.textContent = t().retry;
+              retry = true;
+              return;
+            }
+            msg.textContent = t().checkingFolder;
+            settingsBtn.hidden = false;
+            resolve();
+          });
+          const langRow = el('div', { class: 'seg', role: 'group', 'aria-label': `${content.id.language} / ${content.en.language}`, id: 'welcome-lang' },
+            ...[['id', 'Bahasa Indonesia'], ['en', 'English']].map(([code, label]) => el('button', {
+              class: 'seg-btn', type: 'button', lang: code, 'aria-pressed': lang === code ? 'true' : 'false', text: label,
+              onclick: async () => {
+                lang = code;
+                await io.kv.set('lang', lang);
+                document.documentElement.lang = lang;
+                chrome();
+                draw(retry, msg.textContent ? (retry ? t().pickCancelled : '') : '');
+              } })));
+          mount.replaceChildren(el('section', { class: 'welcome' }, langRow,
+            el('h2', { text: t().welcomeTitle }), el('p', { text: t().welcomeBody }), el('p', { class: 'note', text: t().welcomeHint }), btn, msg));
+        };
+        draw();
       });
     }
 

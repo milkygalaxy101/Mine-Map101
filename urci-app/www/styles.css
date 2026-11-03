@@ -132,6 +132,7 @@ main { padding: 0 var(--md); max-width: 720px; margin: 0 auto; }
 .welcome { padding: var(--lg) 0; }
 .welcome h2 { font: 600 24px/1.2 Barlow; margin: 0 0 var(--md); }
 .welcome p { margin: 0 0 var(--md); }
+.welcome .seg { margin-bottom: var(--lg); }
 
 /* quantity grid */
 .grid { display: flex; flex-direction: column; }
