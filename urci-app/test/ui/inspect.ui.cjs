@@ -198,9 +198,39 @@ async function run(browser, base, scale) {
     await page.waitForSelector('#urci-num');
   }
 
-  // language
-  await page.click('#lang');
-  check((await page.textContent('#save')).trim() === 'Save', `${tag} EN switch relabels Save`);
+  // Settings: bands, self-test, diagnostics (scale 1), language (both)
+  await page.click('#settings-btn');
+  await page.waitForSelector('#bands-save');
+  if (scale === 1) {
+    check(await page.locator('#bands-save').isDisabled(), `${tag} band Save disabled until something changes`);
+    await page.fill('#band-1', '90');
+    check(await page.locator('#bands-save').isDisabled() && (await page.textContent('.err-text')).length > 0, `${tag} non-decreasing limits are refused (Save disabled + message)`);
+    await page.fill('#band-1', '65');
+    await page.fill('#band-3', '20');
+    check(await page.locator('#bands-save').isEnabled(), `${tag} valid change enables Save`);
+    check((await page.locator('#bands-preview tr').last().textContent()).includes('0–19'), `${tag} preview shows derived range 0–19`);
+    await page.click('#bands-save');
+    await page.waitForSelector('.toast');
+    const band = await page.evaluate(() => { const r = window.__urci.store.live()[0]; return window.UrciEngine.rate(r.result.urci, window.__urci.settings.bands); });
+    check(band === 3, `${tag} URCI 23 now rates Buruk (band 3) with lower limit 20`);
+    await page.reload();
+    await page.waitForSelector('#version');
+    check(await page.evaluate(() => window.__urci.settings.bands.join('/')) === '85/65/45/20', `${tag} bands persist in settings.json across restarts`);
+    for (let i = 0; i < 5; i++) await page.click('#version');
+    await page.waitForSelector('#self-test');
+    const st = await page.textContent('#self-test');
+    check(/FS 101: URCI 59 \(TM 59\) · LULUS/.test(st) && /FS 144: URCI 23 \(TM 25\) · LULUS/.test(st), `${tag} 5 taps on version open the self-test; both TM examples pass`);
+    await page.click('#self-test .btn-primary');
+    await page.click('#diag-export');
+    await page.waitForFunction(() => window.__urciLastExport && /^diagnostik-/.test(window.__urciLastExport.name));
+    const diag = await page.evaluate(() => window.__urciLastExport.blob.text());
+    check(/"selfTest"/.test(diag) && /"event": "save"/.test(diag) && !/115\.42301/.test(diag), `${tag} diagnostics has self-test and log, and no GPS coordinates`);
+  }
+  await page.click('.seg-btn >> text=English');
+  check((await page.textContent('#title')).trim() === 'Settings', `${tag} language switch to English`);
+  await page.click('#tab-inspect');
+  const saveLabel = await page.waitForFunction(() => { const b = document.querySelector('#save'); return b && b.offsetParent && b.textContent.trim() === 'Save' ? 'Save' : false; }, null, { timeout: 5000 }).then((h) => h.jsonValue()).catch(async () => page.textContent('#save'));
+  check(saveLabel === 'Save', `${tag} EN switch relabels Save (got "${saveLabel}")`);
 
   check(errors.length === 0, `${tag} no console errors / CSP violations ${errors.length ? JSON.stringify(errors) : ''}`);
   if (scale === 1.3) await page.screenshot({ path: path.join(__dirname, 'inspect-360-scale13.png'), fullPage: false });

@@ -35,3 +35,19 @@ test('no content key is accidentally redefined with a different type (e.g. units
     assert.equal(lang.units.m2, 'm²');
   }
 });
+
+test('www/version.js matches package.json version', () => {
+  const fs = require('node:fs');
+  const v = /URCI_VERSION = '([^']+)'/.exec(fs.readFileSync(require.resolve('../www/version.js'), 'utf8'))[1];
+  assert.equal(v, require('../package.json').version);
+});
+
+test('self-test on the shipped curves passes (FS101 59, FS144 within 2 of TM 25)', () => {
+  global.self = {};
+  require('../www/settings.js');
+  const { runSelfTest } = global.self.UrciSelfTest;
+  delete global.self;
+  const curves = require('../www/curves.json');
+  const res = runSelfTest(require('../www/urci-engine.js'), curves);
+  assert.deepEqual(res.map((r) => [r.id, r.urci, r.ok]), [['FS 101', 59, true], ['FS 144', 23, true]]);
+});

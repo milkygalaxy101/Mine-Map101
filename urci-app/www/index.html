@@ -12,7 +12,7 @@
   <header class="topbar">
     <h1 id="title">Inspeksi</h1>
     <button id="help" class="btn-tertiary" type="button">Bantuan</button>
-    <button id="lang" class="btn-tertiary" type="button">EN</button>
+    <a id="settings-btn" class="icon-btn" href="#/settings" aria-label="Pengaturan"></a>
   </header>
   <main id="app" aria-live="off"></main>
   <nav class="tabs" id="tabs" hidden>
@@ -23,6 +23,8 @@
   <!-- Order matters: @capacitor/core must load before anything calls Capacitor.registerPlugin (spike lesson). -->
   <script src="vendor/capacitor.js"></script>
   <script src="vendor/fflate.js"></script>
+  <script src="version.js"></script>
+  <script src="log.js"></script>
   <script src="content.js"></script>
   <script src="icons.js"></script>
   <script src="illustrations.js"></script>
@@ -36,6 +38,7 @@
   <script src="history.js"></script>
   <script src="bundle.js"></script>
   <script src="files.js"></script>
+  <script src="settings.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

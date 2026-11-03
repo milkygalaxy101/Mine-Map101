@@ -81,6 +81,7 @@
         }
         prog.close();
         await this.kv.set('lastBackupAt', Date.now());
+        UrciLog.add('backup', { parts: parts.length });
         this.done(t.backupSaved, saved);
       } catch (e) {
         prog.close();
@@ -142,6 +143,7 @@
         prog.set(t.savingImport, 0.5);
         await this.platform.bundles.importPhotos(picked, checked.photos, checked.photoBytes);
         const res = await this.B.applyBundle(this.store, checked);
+        UrciLog.add('import', { imported: res.imported, already: res.alreadyHad, conflicts: res.conflicts.length, skipped: res.skipped.length, reasons: res.skipped.map((x) => x.reason).join(' | ') });
         prog.close();
         this.result(res);
       } catch (e) {
@@ -187,7 +189,7 @@
       document.body.append(scrim);
       actions.lastChild.focus();
     }
-    reject(msg) { this.alert(this.t().bundleRejected, msg); }
+    reject(msg) { UrciLog.add('import-rejected', { reason: msg }); this.alert(this.t().bundleRejected, msg); }
     fail(title, e) {
       const t = this.t();
       const code = e && e.code;

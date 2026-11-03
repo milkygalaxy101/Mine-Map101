@@ -642,6 +642,7 @@
         this.errors = {};
         this.expanded = true;
         this.lastUrci = null;
+        if (root.UrciLog) UrciLog.add('save', { entries: entries.length, photos: drafts.length, edit: !!editingUuid });
         this.toast(t.saved);
       } catch (e) {
         const code = e && e.code;
@@ -649,6 +650,7 @@
         else if (code === 'NO_SPACE') this.notice(t.saveFailed, t.noSpace);
         else if ((code === 'NO_FOLDER' || code === 'PERMISSION_LOST') && this.onFolderLost) { this.notice(t.saveFailed, t.folderLost); this.onFolderLost(); }
         else this.notice(t.saveFailed, String((e && (e.code || e.message)) || e)); // the draft is kept either way
+        if (root.UrciLog) UrciLog.add('save-error', { code: String(code || (e && e.message)) });
       } finally {
         this.saving = false;
         this.render();

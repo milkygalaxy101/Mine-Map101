@@ -29,21 +29,23 @@
     const mount = document.getElementById('app');
     const titleEl = document.getElementById('title');
     const helpBtn = document.getElementById('help');
-    const langBtn = document.getElementById('lang');
+    const settingsBtn = document.getElementById('settings-btn');
+    settingsBtn.append(icon('settings', ''));
+    UrciLog.init(io.local);
     let screen = null;
 
     function chrome() {
       titleEl.textContent = t().inspect;
-      langBtn.textContent = t().lang;
-      langBtn.setAttribute('aria-label', t().langLabel);
+      settingsBtn.setAttribute('aria-label', t().settingsLabel);
       helpBtn.textContent = t().help;
     }
-    langBtn.addEventListener('click', async () => {
-      lang = lang === 'id' ? 'en' : 'id';
+    async function setLang(l) {
+      lang = l;
       await io.kv.set('lang', lang);
       document.documentElement.lang = lang;
       chrome();
-    });
+      if (typeof route === 'function') route();
+    }
     chrome();
 
     let curves;
@@ -98,17 +100,35 @@
     }
     const store = await openStore();
 
+    // site settings live in the data folder (settings.json) so a re-installed phone keeps them
+    const settings = { bands: [...window.UrciEngine.DEFAULT_BAND_LOWERS] };
+    try {
+      const saved = JSON.parse(await io.fs.readText('settings.json'));
+      if (saved && window.UrciEngine.validateBands(saved.bands).ok) settings.bands = saved.bands;
+    } catch (e) { /* no settings yet: defaults */ }
+    async function saveSettings(next) {
+      Object.assign(settings, next);
+      await io.fs.writeTextSafe('settings.json', JSON.stringify({ format: 'urci-settings', version: 1, bands: settings.bands }));
+    }
+
     screen = new window.InspectScreen({
       mount, engine: window.UrciEngine, curves, storeApi: window.UrciStore, store, content,
       getLang: () => lang, kv: io.kv, local: io.local, testMode: !platform.native, platform, newId: io.newId,
       onFolderLost: async () => { await chooseFolder(); helpBtn.hidden = false; await store.loadAll(); route(); },
     });
+    screen.settings = settings;
     const historyScreen = new window.HistoryScreen({
       mount, store, engine: window.UrciEngine, content, getLang: () => lang, platform, storeApi: window.UrciStore,
       toast: (m) => screen.toast(m), confirm: (o) => screen.confirm(o), curves,
       onEdit: (rec) => { screen.loadRecord(rec); location.hash = '#/inspect'; },
     });
 
+    historyScreen.lowers = () => settings.bands;
+    const settingsScreen = new window.SettingsScreen({
+      mount, content, getLang: () => lang, setLang, platform, settings, saveSettings, engine: window.UrciEngine, curves, store,
+      toast: (m) => screen.toast(m),
+      onChangeFolder: async () => { await chooseFolder(); await store.loadAll(); location.hash = '#/inspect'; route(); },
+    });
     const filesScreen = new window.FilesScreen({
       mount, store, content, getLang: () => lang, platform, storeApi: window.UrciStore, bundleApi: window.UrciBundle, kv: io.kv,
       toast: (m) => screen.toast(m),
@@ -120,6 +140,7 @@
     function parse(hash) {
       const p = (hash || '').replace(/^#\/?/, '').split('/').map(decodeURIComponent);
       if (p[0] === 'files') return { tab: 'files' };
+      if (p[0] === 'settings') return { tab: 'settings' };
       if (p[0] !== 'history') return { tab: 'inspect' };
       if (p[1] === 'conflicts') return { tab: 'history', view: 'conflicts' };
       if (p[1] === 's' && p[3] === 'r') return { tab: 'history', view: 'round', key: p[2], roundId: p[4] };
@@ -140,10 +161,11 @@
         a.textContent = t()[label];
       }
       helpBtn.hidden = !onInspect;
-      titleEl.textContent = onInspect ? t().inspect : r.tab === 'files' ? t().filesTitle : t().historyTitle;
+      titleEl.textContent = onInspect ? t().inspect : r.tab === 'files' ? t().filesTitle : r.tab === 'settings' ? t().settingsTitle : t().historyTitle;
+      settingsBtn.hidden = r.tab === 'settings';
       const bar = document.getElementById('resultbar');
       if (bar) bar.hidden = !onInspect;
-      if (onInspect) screen.render(); else if (r.tab === 'files') filesScreen.render(); else historyScreen.render(r);
+      if (onInspect) screen.render(); else if (r.tab === 'files') filesScreen.render(); else if (r.tab === 'settings') settingsScreen.render(); else historyScreen.render(r);
       if (!onInspect) { const b = document.getElementById('resultbar'); if (b) b.hidden = true; }
       window.scrollTo(0, 0);
     }
@@ -152,14 +174,13 @@
     document.addEventListener('focusin', (e) => { if (e.target.matches('input, textarea')) document.body.classList.add('kbd'); });
     document.addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !document.activeElement.matches('input, textarea')) document.body.classList.remove('kbd'); }, 50));
 
-    langBtn.addEventListener('click', () => route());
     helpBtn.hidden = false;
     helpBtn.addEventListener('click', () => screen.showTip());
     route();
     await screen.start();
     route();
     if (firstRunNote) screen.toast(firstRunNote);
-    window.__urci = { screen, store, curves, platform, historyScreen, filesScreen }; // test hook
+    window.__urci = { screen, store, curves, platform, historyScreen, filesScreen, settingsScreen, settings }; // test hook
   }
   boot().catch((e) => fatal('Gagal memulai / start failed: ' + (e && (e.message || e))));
 })();

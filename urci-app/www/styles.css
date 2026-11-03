@@ -243,6 +243,14 @@ body:not(.on-inspect) { padding-bottom: calc(var(--tabs) + env(safe-area-inset-b
 .choice { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sm); }
 .choice .btn-secondary { padding: 0 var(--xs); }
 
+/* settings */
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; min-width: var(--target); min-height: var(--target); color: var(--primary); }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sm); }
+.seg-btn { min-height: var(--target); border: 2px solid var(--primary); border-radius: var(--r-md); background: var(--paper); color: var(--primary); font: 600 16px Barlow; }
+.seg-btn[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); }
+.version { margin: var(--md) 0 var(--lg); min-height: var(--target); padding: 0; background: none; border: 0; color: var(--muted); font: 400 14px 'IBM Plex Mono', monospace; }
+.ok-text { color: var(--success); }
+
 /* sheets and dialogs */
 .scrim { position: fixed; inset: 0; z-index: 20; background: rgba(20, 23, 26, .45); display: flex; align-items: flex-end; justify-content: center; }
 .scrim.center { align-items: center; padding: var(--md); }
