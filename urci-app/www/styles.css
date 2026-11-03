@@ -289,3 +289,21 @@ body:not(.on-inspect) { padding-bottom: calc(var(--tabs) + env(safe-area-inset-b
 }
 
 @media (prefers-reduced-motion: reduce) { .urci-num { transition: none; } }
+
+/* ---- Panduan / manual ---- */
+a.btn-tertiary { display: inline-flex; align-items: center; }
+a.btn-secondary { display: flex; align-items: center; justify-content: center; text-decoration: none; margin: var(--sm) 0; }
+.manual-nav { display: flex; justify-content: space-between; gap: var(--sm); flex-wrap: wrap; margin: var(--sm) 0; }
+.manual-nav a { display: inline-flex; align-items: center; min-height: var(--target); color: var(--primary); font-weight: 600; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.manual-list { padding-left: 20px; margin: var(--sm) 0; }
+.manual-list li { margin-bottom: var(--sm); line-height: 1.45; }
+.manual-chips { list-style: none; padding: 0; margin: var(--sm) 0 var(--md); display: flex; flex-wrap: wrap; gap: var(--xs); }
+.manual-chips a { display: inline-flex; align-items: center; min-height: var(--target); padding: 0 var(--sm); border: 1px solid var(--rule); border-radius: var(--r-md); color: var(--primary); font-weight: 600; text-decoration: none; }
+.manual-distress { border-top: 1px solid var(--rule); padding-top: var(--sm); margin-top: var(--md); scroll-margin-top: var(--md); }
+.manual-distress h4 { margin: var(--md) 0 var(--xs); font: 600 16px/1.3 Barlow; }
+.manual-calc td.num { font-family: 'IBM Plex Mono', monospace; text-align: right; }
+.manual-calc th { width: auto; }
+.manual-result { font: 600 18px/1.4 'IBM Plex Mono', monospace; margin: var(--sm) 0 var(--md); }
+.manual-source { margin-top: var(--lg); padding-top: var(--sm); border-top: 1px solid var(--rule); }
+.manual-calc { font-size: 14px; table-layout: fixed; }
+.manual-calc th, .manual-calc td { padding: 6px 4px; overflow-wrap: anywhere; hyphens: auto; }

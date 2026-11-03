@@ -62,7 +62,11 @@ async function run(browser, base, scale) {
   await page.waitForSelector('#urci-num');
   check(await page.locator('.tip').count() === 0, `${tag} card stays dismissed after reopening`);
   await page.click('#help');
-  check(await page.locator('.tip').count() === 1, `${tag} Bantuan reopens the card`);
+  await page.waitForSelector('#manual-toc');
+  await page.click('a[href="#/manual/s4"]');
+  await page.click('#manual-show-tip');
+  await page.waitForSelector('.tip');
+  check(await page.locator('.tip').count() === 1, `${tag} Panduan §4 reopens the card`);
   await page.click('#tip-ok');
   const noHScroll = async () => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
   check(await noHScroll(), `${tag} no horizontal scroll on empty form`);

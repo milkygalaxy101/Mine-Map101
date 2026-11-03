@@ -454,7 +454,9 @@
         code === '85' ? this.potholeTable(null) : this.levelsTable(code, null),
         d.numbers ? null : el('p', { class: 'note', text: t.noNumbers }),
         el('p', { class: 'note', text: `${d.fig} · ${t.helpSource}` }),
-        el('div', { class: 'sheet-actions' }, el('button', { class: 'btn-primary', type: 'button', text: t.close, onclick: () => close() })));
+        el('div', { class: 'sheet-actions' },
+          el('a', { class: 'btn-tertiary manual-link', href: `#/manual/s2/${code}`, text: t.manualOpenSection.replace('{s}', `2.${code.slice(1)}`), onclick: () => close() }),
+          el('button', { class: 'btn-primary', type: 'button', text: t.close, onclick: () => close() })));
     }
 
     // ---------- photos (R6 draft-private, R7 downscale, HASH-1 fingerprint) ----------

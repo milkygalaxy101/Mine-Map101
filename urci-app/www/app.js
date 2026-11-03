@@ -31,13 +31,14 @@
     const helpBtn = document.getElementById('help');
     const settingsBtn = document.getElementById('settings-btn');
     settingsBtn.append(icon('settings', ''));
+    helpBtn.append(icon('menu_book', ''));
     UrciLog.init(io.local);
     let screen = null;
 
     function chrome() {
       titleEl.textContent = t().inspect;
       settingsBtn.setAttribute('aria-label', t().settingsLabel);
-      helpBtn.textContent = t().help;
+      helpBtn.setAttribute('aria-label', t().manualLabel);
     }
     async function setLang(l) {
       lang = l;
@@ -134,6 +135,11 @@
       toast: (m) => screen.toast(m),
     });
 
+    const manualScreen = new window.ManualScreen({
+      mount, content, getLang: () => lang, engine: window.UrciEngine, curves, helpers: screen, getBands: () => settings.bands,
+      onShowTip: () => { location.hash = '#/inspect'; screen.showTip(); },
+    });
+
     // ---- tabs + hash routes (the phone's back button walks back up the History levels) ----
     const tabs = document.getElementById('tabs');
     tabs.hidden = false;
@@ -141,6 +147,7 @@
       const p = (hash || '').replace(/^#\/?/, '').split('/').map(decodeURIComponent);
       if (p[0] === 'files') return { tab: 'files' };
       if (p[0] === 'settings') return { tab: 'settings' };
+      if (p[0] === 'manual') return { tab: 'manual', sec: p[1], anchor: p[2] };
       if (p[0] !== 'history') return { tab: 'inspect' };
       if (p[1] === 'conflicts') return { tab: 'history', view: 'conflicts' };
       if (p[1] === 's' && p[3] === 'r') return { tab: 'history', view: 'round', key: p[2], roundId: p[4] };
@@ -160,27 +167,25 @@
         a.setAttribute('aria-current', r.tab === tab ? 'page' : 'false');
         a.textContent = t()[label];
       }
-      helpBtn.hidden = !onInspect;
-      titleEl.textContent = onInspect ? t().inspect : r.tab === 'files' ? t().filesTitle : r.tab === 'settings' ? t().settingsTitle : t().historyTitle;
+      helpBtn.hidden = r.tab === 'manual';
+      titleEl.textContent = onInspect ? t().inspect : r.tab === 'files' ? t().filesTitle : r.tab === 'settings' ? t().settingsTitle : r.tab === 'manual' ? t().manualTitle : t().historyTitle;
       settingsBtn.hidden = r.tab === 'settings';
       const bar = document.getElementById('resultbar');
       if (bar) bar.hidden = !onInspect;
-      if (onInspect) screen.render(); else if (r.tab === 'files') filesScreen.render(); else if (r.tab === 'settings') settingsScreen.render(); else historyScreen.render(r);
+      if (onInspect) screen.render(); else if (r.tab === 'files') filesScreen.render(); else if (r.tab === 'settings') settingsScreen.render(); else if (r.tab === 'manual') manualScreen.render(r); else historyScreen.render(r);
       if (!onInspect) { const b = document.getElementById('resultbar'); if (b) b.hidden = true; }
-      window.scrollTo(0, 0);
+      if (!(r.tab === 'manual' && r.anchor)) window.scrollTo(0, 0);
     }
     window.addEventListener('hashchange', route);
     // tabs hide while the keyboard is up (an input has focus), so the result bar sits right above it
     document.addEventListener('focusin', (e) => { if (e.target.matches('input, textarea')) document.body.classList.add('kbd'); });
     document.addEventListener('focusout', () => setTimeout(() => { if (!document.activeElement || !document.activeElement.matches('input, textarea')) document.body.classList.remove('kbd'); }, 50));
 
-    helpBtn.hidden = false;
-    helpBtn.addEventListener('click', () => screen.showTip());
     route();
     await screen.start();
     route();
     if (firstRunNote) screen.toast(firstRunNote);
-    window.__urci = { screen, store, curves, platform, historyScreen, filesScreen, settingsScreen, settings }; // test hook
+    window.__urci = { screen, store, curves, platform, historyScreen, filesScreen, settingsScreen, manualScreen, settings }; // test hook
   }
   boot().catch((e) => fatal('Gagal memulai / start failed: ' + (e && (e.message || e))));
 })();

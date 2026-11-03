@@ -103,6 +103,7 @@
       // source + about (owner request: source footnote at the bottom of Settings)
       const ver = el('button', { class: 'version', type: 'button', id: 'version', text: `URCI Field ${root.URCI_VERSION}`, onclick: () => this.versionTap() });
       this.mount.append(el('h2', { class: 'block', text: t.aboutTitle }),
+        el('a', { class: 'btn-secondary btn-block', href: '#/manual', id: 'settings-manual', text: t.manualFromSettings }),
         el('p', { class: 'note', text: t.sourceFootnote }), el('p', { class: 'note', text: t.pdfCurves }), el('p', { class: 'note', text: t.fontsNote }), ver);
     }
 
