@@ -124,10 +124,33 @@
     }
 
     // ---------- import ----------
-    async importBundle() {
+    // A bundle opened from WhatsApp / Bluetooth / a file manager ("Open with URCI Field"): ask first, then the
+    // same import as "Impor bundel".
+    async importIncoming(inc) {
       const t = this.t();
-      let picked;
-      try { picked = await this.platform.bundles.pick(); } catch (e) { if (e && e.code !== 'CANCELLED') this.fail(t.importBundle, e); return; }
+      if (inc.error) {
+        const cls = String(inc.error).replace('BUNDLE_INVALID:', '');
+        if (String(inc.error).startsWith('BUNDLE_INVALID:')) return this.reject(t.bundleErr[cls] || cls);
+        return this.fail(t.importBundle, { code: inc.error });
+      }
+      const ok = await this.confirm(t.incomingTitle, t.incomingBody.replace('{name}', inc.name || '—'), t.importOk);
+      if (!ok) return;
+      await this.importBundle(inc);
+    }
+
+    async importBundle(given) {
+      const t = this.t();
+      if (this.importing) return;
+      let picked = given;
+      if (!picked) {
+        try { picked = await this.platform.bundles.pick(); } catch (e) { if (e && e.code !== 'CANCELLED') this.fail(t.importBundle, e); return; }
+      }
+      this.importing = true;
+      try { await this.runImport(picked); } finally { this.importing = false; }
+    }
+
+    async runImport(picked) {
+      const t = this.t();
       const prog = this.progress(t.checkingBundle);
       let checked;
       try {
@@ -201,6 +224,18 @@
       const scrim = el('div', { class: 'scrim center' }, el('div', { class: 'dialog', role: 'alertdialog', 'aria-label': title }, el('h2', { text: title }), el('p', { text: body }), el('div', { class: 'dialog-actions' }, ok)));
       document.body.append(scrim);
       ok.focus();
+    }
+    confirm(title, body, okText) {
+      const t = this.t();
+      return new Promise((resolve) => {
+        const done = (v) => { scrim.remove(); resolve(v); };
+        const ok = el('button', { class: 'btn-primary', type: 'button', id: 'incoming-ok', text: okText, onclick: () => done(true) });
+        const scrim = el('div', { class: 'scrim center' }, el('div', { class: 'dialog', role: 'alertdialog', 'aria-label': title },
+          el('h2', { text: title }), el('p', { text: body }),
+          el('div', { class: 'dialog-actions' }, el('button', { class: 'btn-tertiary', type: 'button', text: t.cancel, onclick: () => done(false) }), ok)));
+        document.body.append(scrim);
+        ok.focus();
+      });
     }
   }
 

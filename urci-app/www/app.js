@@ -185,6 +185,15 @@
     await screen.start();
     route();
     if (firstRunNote) screen.toast(firstRunNote);
+    // "Open with URCI Field": a bundle handed over by WhatsApp / Bluetooth / a file manager, at launch or later
+    const handleIncoming = async () => {
+      const inc = await platform.bundles.takeIncoming();
+      if (!inc) return;
+      if (location.hash !== '#/files') location.hash = '#/files';
+      await filesScreen.importIncoming(inc);
+    };
+    platform.bundles.onIncoming(() => { handleIncoming(); });
+    handleIncoming();
     window.__urci = { screen, store, curves, platform, historyScreen, filesScreen, settingsScreen, manualScreen, settings }; // test hook
   }
   boot().catch((e) => fatal('Gagal memulai / start failed: ' + (e && (e.message || e))));

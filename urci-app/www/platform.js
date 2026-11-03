@@ -90,6 +90,9 @@
     const bundles = {
       exportZip: (paths, manifest, name) => P.exportZip({ paths, manifest: JSON.stringify(manifest), name }),
       pick: () => P.pickBundle(),
+      // "Open with URCI Field": the native side copies the file into app cache; null when nothing is waiting
+      takeIncoming: async () => { try { const r = await P.takeIncoming(); return r && (r.uri || r.error) ? r : null; } catch (e) { return null; } },
+      onIncoming: (cb) => { try { P.addListener('incomingBundle', () => cb()); } catch (e) { /* older native build */ } },
       inspect: async (picked) => { const r = await P.inspectZip({ uri: picked.uri }); return { entries: r.entries, texts: r.texts || {} }; },
       importPhotos: (picked, accept, bytes) => P.importZipPhotos({ uri: picked.uri, accept, bytes }),
       open: (relPath) => P.openExport({ relPath }),
@@ -290,6 +293,12 @@
       async gpsDrift() { let v = null; try { v = root.localStorage.getItem('urci.testDriftMs'); } catch (e) { /* none */ } return v === null ? null : Number(v); },
       async openDateSettings() { root.__urciOpenedDateSettings = true; },
     };
+    // test hook for "Open with URCI Field": window.__urciReceive(blob, name) acts like an incoming intent
+    let incoming = null;
+    const incomingCbs = new Set();
+    root.__urciReceive = (blob, name) => { const uri = `mem:${dev.newId()}`; picked.set(uri, blob); incoming = { uri, name }; incomingCbs.forEach((f) => f()); };
+    bundles.takeIncoming = async () => { const r = incoming; incoming = null; return r; };
+    bundles.onIncoming = (cb) => incomingCbs.add(cb);
     return { native: false, bundles, io: { fs: dev.fs, kv: dev.kv, newId: dev.newId, local: dev.local }, media, geo, clock };
   }
 

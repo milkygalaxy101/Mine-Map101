@@ -121,3 +121,22 @@ test('clock check: native drift passes through; no fix or an error is null (neve
   f.plugin.openDateSettings = async () => { throw Object.assign(new Error('x'), { code: 'NO_APP' }); };
   await plat.clock.openDateSettings(); // swallowed
 });
+
+test('incoming bundle ("Open with URCI Field"): waiting file or error passes through, nothing waiting is null', async () => {
+  const f = fakeNative();
+  let next = { uri: 'file:///cache/incoming/in-1.zip', name: 'a.urci.zip', size: 10 };
+  f.plugin.takeIncoming = async () => { const r = next; next = {}; return r; };
+  let poke = null;
+  f.plugin.addListener = (ev, cb) => { if (ev === 'incomingBundle') poke = cb; };
+  const plat = load(f.self).create();
+  let pokes = 0;
+  plat.bundles.onIncoming(() => pokes++);
+  poke({});
+  assert.equal(pokes, 1);
+  assert.deepEqual(await plat.bundles.takeIncoming(), { uri: 'file:///cache/incoming/in-1.zip', name: 'a.urci.zip', size: 10 });
+  assert.equal(await plat.bundles.takeIncoming(), null);
+  next = { name: 'big.zip', error: 'BUNDLE_INVALID:TOO_BIG' };
+  assert.equal((await plat.bundles.takeIncoming()).error, 'BUNDLE_INVALID:TOO_BIG');
+  delete f.plugin.takeIncoming;
+  assert.equal(await plat.bundles.takeIncoming(), null); // older native build
+});

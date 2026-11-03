@@ -43,10 +43,11 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${msg}`); if (
       writeTextSafe: ({ path: p, text }) => { files.set(p, text); return {}; },
       delete: ({ path: p }) => { files.delete(p); return {}; },
       requestPermissions: () => ({ location: 'granted' }),
+      takeIncoming: () => ({}),
     };
     window.Capacitor = {
       PluginHeaders: [
-        { name: 'UrciStorage', methods: m(['pickFolder', 'folderStatus', 'list', 'readText', 'writeTextSafe', 'delete', 'rename', 'writeDraftPhoto', 'deleteDraftPhoto', 'copyDraftIn', 'downscale', 'freeSpace', 'nativeFix']) },
+        { name: 'UrciStorage', methods: [...m(['pickFolder', 'folderStatus', 'list', 'readText', 'writeTextSafe', 'delete', 'rename', 'writeDraftPhoto', 'deleteDraftPhoto', 'copyDraftIn', 'downscale', 'freeSpace', 'nativeFix', 'pickPhoto', 'openDateSettings', 'takeIncoming', 'pickBundle', 'removeAllListeners']), ...m(['addListener', 'removeListener'], 'none')] },
         { name: 'Camera', methods: m(['takePhoto']) },
         { name: 'Geolocation', methods: [...m(['requestPermissions', 'getCurrentPosition', 'checkPermissions']), ...m(['watchPosition'], 'callback')] },
       ],

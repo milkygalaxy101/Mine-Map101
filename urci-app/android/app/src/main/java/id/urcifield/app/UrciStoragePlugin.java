@@ -80,6 +80,77 @@ public class UrciStoragePlugin extends Plugin {
                 return super.shouldInterceptRequest(view, request);
             }
         });
+        // a bundle opened from WhatsApp / Bluetooth / a file manager while the app was not running
+        Intent launch = getActivity().getIntent();
+        if (isIncoming(launch)) {
+            getActivity().setIntent(new Intent(Intent.ACTION_MAIN)); // never re-import on activity re-creation
+            receive(launch);
+        }
+    }
+
+    // ---------- "Open with URCI Field" / "Share to URCI Field" (.urci.zip) ----------
+    // The sender's read grant can end when its task does, so the file is copied into app cache at once; JS then
+    // runs the normal two-pass import on the copy. The manifest.json check decides whether it is a real bundle.
+    private final Object incomingLock = new Object();
+    private JSObject incoming = null;
+
+    @Override
+    protected void handleOnNewIntent(Intent intent) {
+        super.handleOnNewIntent(intent);
+        if (isIncoming(intent)) receive(intent);
+    }
+
+    private static boolean isIncoming(Intent i) {
+        if (i == null || i.getAction() == null) return false;
+        if (Intent.ACTION_VIEW.equals(i.getAction())) return i.getData() != null;
+        if (Intent.ACTION_SEND.equals(i.getAction())) return i.getParcelableExtra(Intent.EXTRA_STREAM) != null;
+        return false;
+    }
+
+    private void receive(Intent intent) {
+        final Uri src = Intent.ACTION_VIEW.equals(intent.getAction()) ? intent.getData() : (Uri) intent.getParcelableExtra(Intent.EXTRA_STREAM);
+        new Thread(() -> {
+            JSObject ev = new JSObject();
+            String name = null;
+            try (android.database.Cursor c = getContext().getContentResolver().query(src, new String[] { android.provider.OpenableColumns.DISPLAY_NAME }, null, null, null)) {
+                if (c != null && c.moveToFirst()) name = c.getString(0);
+            } catch (Exception ignored) { }
+            if (name == null) name = src.getLastPathSegment();
+            ev.put("name", name);
+            try {
+                File dir = new File(getContext().getCacheDir(), "incoming");
+                if (dir.exists()) { File[] old = dir.listFiles(); if (old != null) for (File f : old) f.delete(); }
+                if (!dir.exists() && !dir.mkdirs()) throw new Exception("cannot create cache dir");
+                File dst = new File(dir, "in-" + UUID.randomUUID() + ".zip");
+                long total = 0, nextSpaceCheck = 0;
+                try (InputStream in = getContext().getContentResolver().openInputStream(src); FileOutputStream out = new FileOutputStream(dst)) {
+                    if (in == null) throw new Exception("cannot open");
+                    byte[] buf = new byte[64 * 1024];
+                    for (int n; (n = in.read(buf)) > 0; ) {
+                        total += n;
+                        if (total > TOTAL_MAX) throw new SecurityException("too large");
+                        if (total >= nextSpaceCheck) { if (!hasSpace(64L * 1024 * 1024)) throw new java.io.IOException("ENOSPC"); nextSpaceCheck += 16L * 1024 * 1024; }
+                        out.write(buf, 0, n);
+                    }
+                }
+                ev.put("uri", Uri.fromFile(dst).toString());
+                ev.put("size", total);
+            } catch (SecurityException e) {
+                ev.put("error", "BUNDLE_INVALID:TOO_BIG");
+            } catch (Exception e) {
+                ev.put("error", String.valueOf(e.getMessage()).contains("ENOSPC") ? "NO_SPACE" : "IO");
+            }
+            synchronized (incomingLock) { incoming = ev; }
+            notifyListeners("incomingBundle", new JSObject(), false); // a poke: JS then calls takeIncoming (no double import)
+        }).start();
+    }
+
+    // JS asks once after boot (the event may have fired before its listener existed); returns {} when none.
+    @PluginMethod
+    public void takeIncoming(PluginCall call) {
+        JSObject ev;
+        synchronized (incomingLock) { ev = incoming; incoming = null; }
+        call.resolve(ev != null ? ev : new JSObject());
     }
 
     private WebResourceResponse serveSaf(String rel) {

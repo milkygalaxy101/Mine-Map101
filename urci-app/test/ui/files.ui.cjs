@@ -125,6 +125,30 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${msg}`); if (
   await importFile(B, notZip);
   await B.locator('.dialog', { hasText: 'Bundel ditolak' }).waitFor();
   check((await B.textContent('.dialog')).includes('bukan file bundel'), 'non-zip file: "bukan file bundel URCI"');
+  await B.click('.dialog .btn-primary');
+
+  // "Open with URCI Field" (incoming intent): from any tab, asks first, then the same import
+  const receive = (page, b64, name) => page.evaluate(([d, n]) => {
+    const bin = atob(d); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    window.__urciReceive(new Blob([u]), n);
+  }, [b64, name]);
+  await B.click('#tab-inspect');
+  await B.waitForSelector('#urci-num');
+  await receive(B, bk2.b64, 'a2.urci.zip');
+  await B.locator('.dialog', { hasText: 'Impor bundel ini?' }).waitFor();
+  check((await B.textContent('.dialog')).includes('a2.urci.zip'), 'incoming bundle: confirm names the file');
+  check(B.url().endsWith('#/files'), 'incoming bundle switches to the Berkas tab');
+  await B.click('.dialog .btn-tertiary');
+  check(await B.locator('#import-stats').count() === 0, 'Batal: nothing imported');
+  await receive(B, bk2.b64, 'a2.urci.zip');
+  await B.click('#incoming-ok');
+  await B.waitForSelector('#import-stats');
+  check((await B.textContent('.headline')).includes('Tidak ada data baru'), 'incoming bundle runs the normal import');
+  await B.click('#import-done');
+  await receive(B, Buffer.from(evil).toString('base64'), 'evil.urci.zip');
+  await B.click('#incoming-ok');
+  await B.locator('.dialog', { hasText: 'Bundel ditolak' }).waitFor();
+  check(true, 'incoming hostile bundle rejected by the same checks');
 
   check(errors.length === 0, `no script errors ${errors.length ? JSON.stringify(errors) : ''}`);
   await browser.close();
