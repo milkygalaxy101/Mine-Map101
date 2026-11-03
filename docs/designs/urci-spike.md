@@ -77,3 +77,8 @@ the memory risk R7 was meant to remove, and stamping alone took up to 4.3 s on t
 **Gate result:** every R13 stop rule passes with native downscale. The production `UrciStorage` gets
 `downscale(uri, maxEdge)` (camera and gallery). `stamp.js` works only on downscaled images. The low-end
 device matrix (E-T8) still applies before release.
+
+**Owner decision (2026-11-03): the low-end / no-Play-Services device test (E-T8, TEST-1 matrix) is not
+required for the first release.** Accepted risk: memory and speed on 2–3 GB phones are untested. Mitigations
+already in the app: native downscale before JS (R7), PDF built in a Web Worker (R3), OOM error codes surfaced
+to the user, and the on-phone self-test (Settings, 5 taps on the version) for calculation correctness.

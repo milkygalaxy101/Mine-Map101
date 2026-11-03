@@ -1683,6 +1683,11 @@ Not design-complete only because Pass 3 stays at 7: the owner declined "Save & n
 ### Unresolved Decisions
 - None.
 
+### Owner decisions after implementation (2026-11-03)
+- **E-T8 / TEST-1 device matrix dropped for the first release** (owner). The Android 9/10–14 matrix, the
+  2–3 GB phone and the no-Play-Services phone are not release gates. Tested so far: realme 13 5G, Android 16.
+  Accepted risk: low-memory behaviour untested; mitigations R7, R3, OOM messages, on-phone self-test.
+
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
