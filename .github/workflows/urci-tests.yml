@@ -49,6 +49,7 @@ jobs:
           node test/ui/files.ui.cjs
           node test/ui/manual.ui.cjs
           node test/ui/clock.ui.cjs
+          node test/ui/photo-flow.ui.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

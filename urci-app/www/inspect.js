@@ -467,7 +467,7 @@
         this.moreSection(code, sev),
         el('label', { class: 'ask', for: 'qty', text: t.ask[d.unit] }),
         el('div', { class: 'qty-input' }, input, el('span', { class: 'unit', text: unit })), err,
-        this.state.qty[key] !== undefined ? this.photoSection(code, sev, () => close()) : null,
+        this.photoSection(code, sev, () => close(), () => saveForPhoto()),
         el('div', { class: 'sheet-actions' },
           el('button', { class: 'btn-tertiary', type: 'button', text: t.clearValue, onclick: async () => {
             const n = (this.state.photos[key] || []).length;
@@ -482,6 +482,15 @@
         if (v === 0) delete this.state.qty[key]; else this.state.qty[key] = v;
         close();
         this.afterEntry();
+      };
+      // "Ambil foto" right away: keep the typed amount (a photo needs a filled box), then take the photo
+      const saveForPhoto = () => {
+        const v = parseNum(input.value);
+        if (v === null || v === 0) { err.textContent = t.photoNeedsValue; input.setAttribute('aria-invalid', 'true'); input.focus(); return false; }
+        if (Number.isNaN(v) || (code === '85' && !Number.isInteger(v))) { err.textContent = t.badNumber; input.setAttribute('aria-invalid', 'true'); input.focus(); return false; }
+        this.state.qty[key] = v;
+        this.afterEntry();
+        return true;
       };
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') commit(); });
       setTimeout(() => input.focus(), 50);
@@ -551,11 +560,19 @@
     }
 
     // ---------- photos (R6 draft-private, R7 downscale, HASH-1 fingerprint) ----------
-    photoSection(code, sev, closeSheet) {
+    // beforeTake: the keypad saves the typed amount first (a photo belongs to a filled box); false = stay in the sheet.
+    // The buttons are never silently disabled: when the stamp's location is missing, the app says so and shows it.
+    photoSection(code, sev, closeSheet, beforeTake = () => true) {
       const t = this.t();
       const key = `${code}-${sev}`;
       const list = this.state.photos[key] || [];
-      const ready = this.headerValid(false);
+      const ready = this.stampReady();
+      const go = (fn) => {
+        if (!beforeTake()) return;
+        closeSheet();
+        if (!this.stampReady()) { this.needLocationForPhoto(); return; }
+        fn();
+      };
       const wrap = el('div', { class: 'photos' });
       if (list.length) {
         wrap.append(el('div', { class: 'label-row' }, el('span', { class: 'note', text: `${t.photosOfCell} (${list.length})` })));
@@ -574,12 +591,31 @@
         }
         wrap.append(strip);
       }
-      wrap.append(el('button', { class: 'btn-secondary btn-block', type: 'button', id: 'take-photo', disabled: !ready || this.busy.has(key),
-        onclick: () => { closeSheet(); this.takePhoto(code, sev); } }, icon('photo_camera', ''), ' ', this.busy.has(key) ? t.photoBusy : t.takePhoto));
-      wrap.append(el('button', { class: 'btn-tertiary', type: 'button', id: 'pick-gallery', disabled: !ready || this.busy.has(key),
-        onclick: () => { closeSheet(); this.importPhoto(code, sev); } }, t.pickGallery));
+      wrap.append(el('button', { class: 'btn-secondary btn-block', type: 'button', id: 'take-photo', disabled: this.busy.has(key),
+        onclick: () => go(() => this.takePhoto(code, sev)) }, icon('photo_camera', ''), ' ', this.busy.has(key) ? t.photoBusy : t.takePhoto));
+      wrap.append(el('button', { class: 'btn-tertiary', type: 'button', id: 'pick-gallery', disabled: this.busy.has(key),
+        onclick: () => go(() => this.importPhoto(code, sev)) }, t.pickGallery));
       if (!ready) wrap.append(el('p', { class: 'note', text: t.photoNeedsHeader }));
       return wrap;
+    }
+
+    // What the photo stamp needs: road code, segment, sample unit (area and date are not on the stamp).
+    stampReady() {
+      const h = this.state.header;
+      const su = parseNum(h.sampleUnit);
+      return !!h.branch.trim() && !!h.section.trim() && su !== null && Number.isInteger(su) && su >= 1 && su <= 9999;
+    }
+
+    needLocationForPhoto() {
+      const t = this.t();
+      this.headerValid(true);
+      for (const k of Object.keys(this.errors)) if (!['branch', 'section', 'sampleUnit'].includes(k)) delete this.errors[k];
+      this.expanded = true;
+      this.render();
+      window.scrollTo(0, 0);
+      this.toast(t.photoNeedsHeader);
+      const first = this.mount.querySelector('[aria-invalid="true"]');
+      if (first) first.focus();
     }
 
     async takePhoto(code, sev) {
