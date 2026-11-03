@@ -113,4 +113,10 @@ jobs:
           **SHA-256 (APK)**: \`$SHA\`
           **Signing certificate SHA-256**: \`$CERT\`
           EOF
-          gh release create "$GITHUB_REF_NAME" "$OUT" "$OUT.sha256" --title "URCI Field $V" --notes-file "$RUNNER_TEMP/notes.md"
+          # The release may already exist (created on the GitHub website, which also creates the tag): then fill it in.
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$OUT" "$OUT.sha256" --clobber
+            gh release edit "$GITHUB_REF_NAME" --title "URCI Field $V" --notes-file "$RUNNER_TEMP/notes.md" --draft=false
+          else
+            gh release create "$GITHUB_REF_NAME" "$OUT" "$OUT.sha256" --title "URCI Field $V" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
